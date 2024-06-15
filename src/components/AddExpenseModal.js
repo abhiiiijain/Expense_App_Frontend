@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-const AddExpenseButton = (props) => {
+const AddExpenseModal = (props) => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -52,8 +52,17 @@ const AddExpenseButton = (props) => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
+
     if (name === "amount") {
-      setFormData({ ...formData, [name]: Number(value) });
+      // Allow only numbers and decimal points
+      const sanitizedValue = value.replace(/[^0-9.]/g, "");
+
+      // If the sanitized value is not a number, set the amount to an empty string
+      if (isNaN(sanitizedValue) || sanitizedValue === "") {
+        setFormData({ ...formData, [name]: "" });
+      } else {
+        setFormData({ ...formData, [name]: sanitizedValue });
+      }
     } else if (name === "category") {
       setFormData({ ...formData, [name]: value, subcategory: "" });
     } else if (name === "subcategory") {
@@ -194,4 +203,4 @@ const AddExpenseButton = (props) => {
   );
 };
 
-export default AddExpenseButton;
+export default AddExpenseModal;

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import PieChart from "./components/PieChart";
 import Transactions from "./components/Transactions";
 import BarChart from "./components/BarChart";
-import AddDataButton from "./components/AddButton";
+import AddExpenseModal from "./components/AddExpenseModal";
 import axios from "axios";
 
 const BASE_URL = "http://localhost:5000/api/v1/";
@@ -65,7 +65,7 @@ function App() {
 
           <Transactions expensess={expenses} />
           <div className="fixed bottom-10 right-10">
-            <AddDataButton AddExpense={addExpense} />
+            <AddExpenseModal AddExpense={addExpense} />
           </div>
         </main>
       </div>
