@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 const AddExpenseModal = (props) => {
   const [showModal, setShowModal] = useState(false);
@@ -57,7 +57,6 @@ const AddExpenseModal = (props) => {
       // Allow only numbers and decimal points
       const sanitizedValue = value.replace(/[^0-9.]/g, "");
 
-      // If the sanitized value is not a number, set the amount to an empty string
       if (isNaN(sanitizedValue) || sanitizedValue === "") {
         setFormData({ ...formData, [name]: "" });
       } else {
@@ -107,6 +106,24 @@ const AddExpenseModal = (props) => {
       console.error("Error adding expense:", error);
     }
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setShowModal(false);
+      }
+    };
+
+    if (showModal) {
+      window.addEventListener("keydown", handleKeyDown);
+    } else {
+      window.removeEventListener("keydown", handleKeyDown);
+    }
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [showModal]);
 
   return (
     <div>
@@ -182,7 +199,6 @@ const AddExpenseModal = (props) => {
                   {formData.category &&
                     subcategories[formData.category].map((subcategory) => (
                       <option key={subcategory} value={subcategory}>
-                        {/* {subcategoryIcons[subcategory]} */}
                         {subcategory}
                       </option>
                     ))}

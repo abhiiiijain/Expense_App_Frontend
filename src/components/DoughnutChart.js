@@ -104,7 +104,7 @@ const DoughnutChart = (props) => {
   };
 
   return (
-    <div className="flex flex-col items-center mt-5 h-1/3">
+    <div>
       <Doughnut width = {"50%"} data={data} options={options} />
     </div>
   );
