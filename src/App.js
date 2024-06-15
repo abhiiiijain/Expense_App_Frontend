@@ -53,20 +53,21 @@ function App() {
 
       {/* main section */}
       <div className="bg-gray-100 relative  flex flex-col items-center">
-        <header className="w-3/4 flex justify-between items-center p-5">
+        <header className="w-[90%] flex justify-between items-center p-5">
           <img src="./logo.png" alt="Logo" className="h-10" />
           <img src="/icon.png" alt="Icon" className="h-8" />
         </header>
-        <main className="flex flex-wrap justify-center gap-10 p-3 w-full">
-          <div className=" flex flex-col gap-10 ">
+        <main className="flex justify-center gap-10 p-3 w-full px-50">
+          <div className=" flex flex-col gap-10 w-[50%]">
             <PieChart expensess={expenses} />
             <BarChart expensess={expenses} />
           </div>
-
-          <Transactions expensess={expenses} />
-          <div className="fixed bottom-10 right-10">
-            <AddExpenseModal AddExpense={addExpense} />
+          <div className=" flex flex-wrap w-[30%]">
+            <Transactions expensess={expenses} />
           </div>
+            <div className="fixed bottom-10 right-10">
+              <AddExpenseModal AddExpense={addExpense} />
+            </div>
         </main>
       </div>
     </>

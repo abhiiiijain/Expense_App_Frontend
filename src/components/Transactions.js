@@ -74,9 +74,9 @@ const Transactions = (props) => {
   const groupedTransactions = groupTransactionsByDate(filteredTransactions);
 
   return (
-    <div className="bg-white shadow-md rounded-lg p-5 w-1/2">
+    <div className="bg-white flex-wrap shadow-md rounded-lg p-5 w-full">
       <div className="p-2">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex  flex-wrap items-center justify-between mb-4 w-full">
           <h3 className="text-xl font-bold mb-4">Transactions</h3>
           <select
             value={selectedMainCategory}
