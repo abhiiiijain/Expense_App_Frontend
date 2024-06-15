@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 
 const mainCategories = [
   "All",
@@ -117,7 +117,7 @@ const Transactions = (props) => {
                   <div className="font-bold">{transaction.title}</div>
                   <div className="text-gray-500">{transaction.subcategory}</div>
                 </div>
-                <div className="ml-auto text-grey-500">{`₹${transaction.amount.toFixed(
+                <div className="ml-auto text-grey-500">{`-₹${transaction.amount.toFixed(
                   2
                 )}`}</div>
               </div>

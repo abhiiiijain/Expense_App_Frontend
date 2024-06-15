@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import axios from "axios";
 
 const AddExpenseButton = (props) => {
   const [showModal, setShowModal] = useState(false);
@@ -174,7 +173,8 @@ const AddExpenseButton = (props) => {
                   {formData.category &&
                     subcategories[formData.category].map((subcategory) => (
                       <option key={subcategory} value={subcategory}>
-                        {subcategoryIcons[subcategory]} {subcategory}
+                        {/* {subcategoryIcons[subcategory]} */}
+                        {subcategory}
                       </option>
                     ))}
                 </select>
