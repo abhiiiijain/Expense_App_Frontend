@@ -49,11 +49,24 @@ const Transactions = (props) => {
 
   const groupTransactionsByDate = (transactions) => {
     return transactions.reduce((groups, transaction) => {
-      const date = new Date(transaction.createdAt).toLocaleDateString();
-      if (!groups[date]) {
-        groups[date] = [];
+      const date = new Date(transaction.createdAt);
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+
+      let dateKey;
+      if (date.toDateString() === today.toDateString()) {
+        dateKey = "Today";
+      } else if (date.toDateString() === yesterday.toDateString()) {
+        dateKey = "Yesterday";
+      } else {
+        dateKey = date.toLocaleDateString();
       }
-      groups[date].push(transaction);
+
+      if (!groups[dateKey]) {
+        groups[dateKey] = [];
+      }
+      groups[dateKey].push(transaction);
       return groups;
     }, {});
   };
@@ -83,9 +96,9 @@ const Transactions = (props) => {
           <>
             <div>
               <button
-                className={`bg-${
-                  selectedSubcategory === "All" ? "blue" : "gray"
-                }-500 text-black px-3 py-1 rounded mr-2`}
+                className={`${
+                  selectedSubcategory === "All" ? "bg-blue-400 border-blue-400" : "bg-transparent border-blue-400"
+                } text-black px-3 py-1 rounded mr-2 border`}
                 onClick={() => setSelectedSubcategory("All")}>
                 All
               </button>
@@ -93,9 +106,11 @@ const Transactions = (props) => {
               {subcategories[selectedMainCategory].map((subcategory) => (
                 <button
                   key={subcategory}
-                  className={`bg-${
-                    selectedSubcategory === subcategory ? "blue" : "gray"
-                  }-200 text-black px-3 py-1 rounded mr-2`}
+                  className={`${
+                    selectedSubcategory === subcategory
+                      ? "bg-blue-400 border-blue-400"
+                      : "bg-transparent border-blue-400"
+                  } text-black px-3 py-1 rounded mr-2 border`}
                   onClick={() => setSelectedSubcategory(subcategory)}>
                   <div className="text-sky font-xs">{subcategory}</div>
                 </button>
@@ -109,13 +124,13 @@ const Transactions = (props) => {
       <div>
         {Object.keys(groupedTransactions).map((date) => (
           <div key={date}>
-            <h4 className="font-thin  mb-2">{date}</h4>
+            <h4 className="font-thin font-sans mb-2">{date}</h4>
             {groupedTransactions[date].map((transaction, index) => (
               <div key={index} className="flex items-center mb-4">
                 <span className="text-2xl mr-3">{transaction.icon}</span>
                 <div>
-                  <div className="font-bold">{transaction.title}</div>
-                  <div className="text-gray-500">{transaction.subcategory}</div>
+                  <div className="font-bold font-serif">{transaction.title}</div>
+                  <div className="text-gray-500 text-sm font-serif">{transaction.subcategory}</div>
                 </div>
                 <div className="ml-auto text-grey-500">{`-₹${transaction.amount.toFixed(
                   2

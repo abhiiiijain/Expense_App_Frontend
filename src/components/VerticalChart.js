@@ -10,7 +10,7 @@ import {
   Legend,
   Title,
 } from "chart.js";
-import { format, subDays } from "date-fns";
+import { format, subDays, isToday, isYesterday } from "date-fns";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, Title);
 
@@ -18,10 +18,17 @@ const VerticalChart = (props) => {
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
 
   useEffect(() => {
-    // Generate the labels for the past 7 days
-    const labels = Array.from({ length: 7 }, (_, i) =>
-      format(subDays(new Date(), i), "do MMM")
-    ).reverse();
+    // Generate the labels for the past 7 days with Today and Yesterday labels
+    const labels = Array.from({ length: 7 }, (_, i) => {
+      const date = subDays(new Date(), i);
+      if (isToday(date)) {
+        return "Today";
+      }
+      if (isYesterday(date)) {
+        return "Yesterday";
+      }
+      return format(date, "do MMM");
+    }).reverse();
 
     // Initialize sums for each category
     const sums = {
@@ -33,8 +40,17 @@ const VerticalChart = (props) => {
 
     // Aggregate data by category and date
     props.expensess.forEach((expense) => {
-      const expenseDate = format(new Date(expense.createdAt), "do MMM");
-      const dayIndex = labels.indexOf(expenseDate);
+      const expenseDate = new Date(expense.createdAt);
+      let label;
+      if (isToday(expenseDate)) {
+        label = "Today";
+      } else if (isYesterday(expenseDate)) {
+        label = "Yesterday";
+      } else {
+        label = format(expenseDate, "do MMM");
+      }
+
+      const dayIndex = labels.indexOf(label);
       if (dayIndex !== -1) {
         sums[expense.category][dayIndex] += expense.amount;
       }
