@@ -54,7 +54,7 @@ function App() {
       {/* main section */}
       <div className="bg-gray-100 relative  flex flex-col items-center">
         <header className="w-3/4 flex justify-between items-center p-5">
-          <img src="/icon.png" alt="Logo" className="h-10" />
+          <img src="./logo.png" alt="Logo" className="h-10" />
           <img src="/icon.png" alt="Icon" className="h-8" />
         </header>
         <main className="flex flex-wrap justify-center gap-10 p-3 w-full">
