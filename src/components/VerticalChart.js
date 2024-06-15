@@ -1,3 +1,4 @@
+// src/VerticalChart.js
 import React, { useState, useEffect } from "react";
 import { Bar } from "react-chartjs-2";
 import {
@@ -7,10 +8,11 @@ import {
   LinearScale,
   Tooltip,
   Legend,
+  Title,
 } from "chart.js";
 import { format, subDays } from "date-fns";
 
-ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
+ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, Title);
 
 const VerticalChart = (props) => {
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
@@ -26,7 +28,7 @@ const VerticalChart = (props) => {
       "Essential Expenses": Array(7).fill(0),
       "Non-Essential Expenses": Array(7).fill(0),
       "Savings and Investments": Array(7).fill(0),
-      Miscellaneous: Array(7).fill(0),
+      "Miscellaneous": Array(7).fill(0),
     };
 
     // Aggregate data by category and date
@@ -40,7 +42,7 @@ const VerticalChart = (props) => {
 
     const datasets = Object.keys(sums).map((category) => {
       // Filter out zero values
-      const filteredData = sums[category].map((value, index) =>
+      const filteredData = sums[category].map((value) =>
         value === 0 ? null : value
       );
 
@@ -76,6 +78,32 @@ const VerticalChart = (props) => {
           },
         },
       },
+      afterDatasetsDraw: {
+        id: 'afterDatasetsDraw',
+        afterDatasetsDraw(chart) {
+          const { ctx, scales } = chart;
+          const xScale = scales.x;
+          const yScale = scales.y;
+
+          chartData.labels.forEach((label, index) => {
+            let sum = 0;
+            chartData.datasets.forEach((dataset) => {
+              if (dataset.data[index] !== null) {
+                sum += dataset.data[index];
+              }
+            });
+            const x = xScale.getPixelForValue(label);
+            const y = yScale.getPixelForValue(sum);
+
+            ctx.save();
+            ctx.font = "bold 12px Arial";
+            ctx.fillStyle = "#000";
+            ctx.textAlign = "center";
+            ctx.fillText(`₹${sum}`, x, y - 10);
+            ctx.restore();
+          });
+        }
+      }
     },
     scales: {
       x: {
