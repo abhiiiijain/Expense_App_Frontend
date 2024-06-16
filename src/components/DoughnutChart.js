@@ -5,13 +5,21 @@ import ChartDataLabels from "chartjs-plugin-datalabels";
 
 ChartJS.register(ArcElement, Tooltip, Legend, ChartDataLabels);
 
-const DoughnutChart = (props) => {
+const DoughnutChart = ({ expensess, userDetails }) => {
+  if (!userDetails) {
+    return null;
+  }
+
+  const userExpenses = expensess.filter(
+    (expense) => expense.email === userDetails.email
+  );
+
   let sum1 = 0;
   let sum2 = 0;
   let sum3 = 0;
   let sum4 = 0;
 
-  props.expensess.map((data) => {
+  userExpenses.forEach((data) => {
     if (data.category === "Essential Expenses") {
       sum1 += data.amount;
     } else if (data.category === "Non-Essential Expenses") {
@@ -105,7 +113,7 @@ const DoughnutChart = (props) => {
 
   return (
     <div>
-      <Doughnut width = {"50%"} data={data} options={options} />
+      <Doughnut width={"50%"} data={data} options={options} />
     </div>
   );
 };

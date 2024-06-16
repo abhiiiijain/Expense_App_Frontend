@@ -31,18 +31,23 @@ const subcategories = {
   ],
 };
 
-const Transactions = (props) => {
+const Transactions = ({ expensess, userDetails }) => {
   const [selectedMainCategory, setSelectedMainCategory] = useState("All");
   const [selectedSubcategory, setSelectedSubcategory] = useState("All");
 
-  const filteredTransactions = props.expensess.filter((transaction) => {
+  if (!userDetails) {
+    return null;
+  }
+
+  const filteredTransactions = expensess.filter((transaction) => {
+    if (transaction.email !== userDetails.email) {
+      return false;
+    }
     if (selectedMainCategory === "All") {
       return true;
     }
     if (selectedSubcategory === "All") {
-      return subcategories[selectedMainCategory].includes(
-        transaction.subcategory
-      );
+      return subcategories[selectedMainCategory].includes(transaction.subcategory);
     }
     return transaction.subcategory === selectedSubcategory;
   });
@@ -76,7 +81,7 @@ const Transactions = (props) => {
   return (
     <div className="bg-white flex-wrap shadow-md rounded-lg p-5 w-full">
       <div className="p-2">
-        <div className="flex  flex-wrap items-center justify-between mb-4 w-full">
+        <div className="flex flex-wrap items-center justify-between mb-4 w-full">
           <h3 className="text-xl font-bold mb-4">Transactions</h3>
           <select
             value={selectedMainCategory}
@@ -84,7 +89,8 @@ const Transactions = (props) => {
               setSelectedMainCategory(e.target.value);
               setSelectedSubcategory("All");
             }}
-            className="bg-white-200 border text-black px-3 py-1 rounded">
+            className="bg-white-200 border text-black px-3 py-1 rounded"
+          >
             {mainCategories.map((category) => (
               <option key={category} value={category}>
                 {category}
@@ -99,7 +105,8 @@ const Transactions = (props) => {
                 className={`${
                   selectedSubcategory === "All" ? "bg-blue-400 border-blue-400" : "bg-transparent border-blue-400"
                 } text-black px-3 py-1 rounded mr-2 border`}
-                onClick={() => setSelectedSubcategory("All")}>
+                onClick={() => setSelectedSubcategory("All")}
+              >
                 All
               </button>
 
@@ -111,7 +118,8 @@ const Transactions = (props) => {
                       ? "bg-blue-400 border-blue-400"
                       : "bg-transparent border-blue-400"
                   } text-black px-3 py-1 rounded mr-2 border`}
-                  onClick={() => setSelectedSubcategory(subcategory)}>
+                  onClick={() => setSelectedSubcategory(subcategory)}
+                >
                   <div className="text-sky font-xs">{subcategory}</div>
                 </button>
               ))}

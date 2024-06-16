@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const AddExpenseModal = (props) => {
+const AddExpenseModal = ({ AddExpense, userDetails }) => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -91,10 +91,13 @@ const AddExpenseModal = (props) => {
       __v: 0,
       createdAt: isoString,
       updatedAt: isoString,
+      email: userDetails.email, // Add user email to the expense object
     };
 
+    console.log("User Details:", userDetails); // Log user details to the console
+
     try {
-      await props.AddExpense(obj);
+      await AddExpense(obj);
       setShowModal(false);
       setFormData({
         title: "",
@@ -129,7 +132,8 @@ const AddExpenseModal = (props) => {
     <div>
       <button
         onClick={() => setShowModal(true)}
-        className="bg-blue-500 text-white font-bold py-2 px-4 rounded-full fixed bottom-10 right-10 shadow-lg">
+        className="bg-blue-500 text-white font-bold py-2 px-4 rounded-full fixed bottom-10 right-10 shadow-lg"
+      >
         +
       </button>
       {showModal && (
@@ -139,7 +143,8 @@ const AddExpenseModal = (props) => {
               <h2 className="text-lg font-semibold">New Expense</h2>
               <button
                 onClick={() => setShowModal(false)}
-                className="text-gray-400 hover:text-gray-600">
+                className="text-gray-400 hover:text-gray-600"
+              >
                 &times;
               </button>
             </div>
@@ -175,15 +180,12 @@ const AddExpenseModal = (props) => {
                   value={formData.category}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
                   <option value="">Select Category</option>
                   <option value="Essential Expenses">Essential Expenses</option>
-                  <option value="Non-Essential Expenses">
-                    Non-Essential Expenses
-                  </option>
-                  <option value="Savings and Investments">
-                    Savings and Investments
-                  </option>
+                  <option value="Non-Essential Expenses">Non-Essential Expenses</option>
+                  <option value="Savings and Investments">Savings and Investments</option>
                   <option value="Miscellaneous">Miscellaneous</option>
                 </select>
               </div>
@@ -194,7 +196,8 @@ const AddExpenseModal = (props) => {
                   value={formData.subcategory}
                   onChange={handleInputChange}
                   required
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
                   <option value="">Select Sub-category</option>
                   {formData.category &&
                     subcategories[formData.category].map((subcategory) => (
@@ -207,7 +210,8 @@ const AddExpenseModal = (props) => {
               <div className="flex justify-end">
                 <button
                   type="submit"
-                  className="bg-blue-500 text-white font-bold py-2 px-4 rounded">
+                  className="bg-blue-500 text-white font-bold py-2 px-4 rounded"
+                >
                   Add
                 </button>
               </div>
