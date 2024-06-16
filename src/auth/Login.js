@@ -64,7 +64,7 @@ function Login() {
           <p className="text-right text-sm text-gray-500 mt-2">
             New user <a href="/register">Register Here</a>
           </p>
-          <SignInWithGoogle />
+          {/* <SignInWithGoogle /> */}
         </form>
       </div>
     </>
