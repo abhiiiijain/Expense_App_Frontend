@@ -1,11 +1,10 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
 } from "react-router-dom";
-import { useState } from "react";
 import { auth } from "./auth/Firebase";
 import Login from "./auth/Login";
 import Register from "./auth/Register";
@@ -15,16 +14,18 @@ import "react-toastify/dist/ReactToastify.css";
 // import Profile from "./auth/Profile";
 
 function Authentication() {
-  const [user, setUser] = useState();
+  const [user, setUser] = useState(null);
+
   useEffect(() => {
-    auth.onAuthStateChanged((user) => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
     });
-  });
+    return () => unsubscribe();
+  }, []);
 
   return (
     <>
-      <Router>
+      <Router basename="/">
         <div>
           <div>
             <div>
@@ -38,7 +39,7 @@ function Authentication() {
                 />
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
-                {/* <Route path="/profile" element={<Profile/>} /> */}
+                {/* <Route path="/profile" element={<Profile />} /> */}
                 <Route path="/app" element={<App />} />
               </Routes>
               <ToastContainer />
