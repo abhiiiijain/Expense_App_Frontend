@@ -12,7 +12,14 @@ import {
 } from "chart.js";
 import { format, subDays, isToday, isYesterday } from "date-fns";
 
-ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, Title);
+ChartJS.register(
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend,
+  Title
+);
 
 const VerticalChart = ({ expensess, userDetails }) => {
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
@@ -43,7 +50,7 @@ const VerticalChart = ({ expensess, userDetails }) => {
       "Essential Expenses": Array(7).fill(0),
       "Non-Essential Expenses": Array(7).fill(0),
       "Savings and Investments": Array(7).fill(0),
-      "Miscellaneous": Array(7).fill(0),
+      Miscellaneous: Array(7).fill(0),
     };
 
     // Aggregate data by category and date
@@ -103,7 +110,7 @@ const VerticalChart = ({ expensess, userDetails }) => {
         },
       },
       afterDatasetsDraw: {
-        id: 'afterDatasetsDraw',
+        id: "afterDatasetsDraw",
         afterDatasetsDraw(chart) {
           const { ctx, scales } = chart;
           const xScale = scales.x;
@@ -126,8 +133,8 @@ const VerticalChart = ({ expensess, userDetails }) => {
             ctx.fillText(`₹${sum}`, x, y - 10);
             ctx.restore();
           });
-        }
-      }
+        },
+      },
     },
     scales: {
       x: {

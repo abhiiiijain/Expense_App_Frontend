@@ -59,7 +59,7 @@ const DoughnutChart = ({ expensess, userDetails }) => {
   const options = {
     plugins: {
       legend: {
-        display: true,
+        display: false,
         position: "right",
         labels: {
           usePointStyle: true,
@@ -113,7 +113,7 @@ const DoughnutChart = ({ expensess, userDetails }) => {
 
   return (
     <div>
-      <Doughnut width={"50%"} data={data} options={options} />
+      <Doughnut  data={data} options={options} />
     </div>
   );
 };
