@@ -8,8 +8,14 @@ function PieChart(props) {
     return null;
   }
 
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
   const userExpenses = expensess.filter(
-    (expense) => expense.email === userDetails.email
+    (expense) => 
+      expense.email === userDetails.email &&
+      new Date(expense.createdAt).getMonth() === currentMonth &&
+      new Date(expense.createdAt).getFullYear() === currentYear
   );
 
   const categorySums = {

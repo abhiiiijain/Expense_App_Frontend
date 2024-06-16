@@ -10,8 +10,14 @@ const DoughnutChart = ({ expensess, userDetails }) => {
     return null;
   }
 
+  const currentMonth = new Date().getMonth();
+  const currentYear = new Date().getFullYear();
+
   const userExpenses = expensess.filter(
-    (expense) => expense.email === userDetails.email
+    (expense) => 
+      expense.email === userDetails.email &&
+      new Date(expense.createdAt).getMonth() === currentMonth &&
+      new Date(expense.createdAt).getFullYear() === currentYear
   );
 
   let sum1 = 0;
@@ -46,7 +52,6 @@ const DoughnutChart = ({ expensess, userDetails }) => {
       "Savings and Investments",
       "Miscellaneous",
     ],
-
     datasets: [
       {
         data: [sum1, sum2, sum3, sum4],
@@ -67,7 +72,6 @@ const DoughnutChart = ({ expensess, userDetails }) => {
           boxWidth: 20,
           padding: 20,
           font: {
-            // size: 10,
             weight: "bold",
           },
         },
@@ -77,9 +81,7 @@ const DoughnutChart = ({ expensess, userDetails }) => {
           label: function (tooltipItem) {
             const value = tooltipItem.raw;
             const percentage = ((value / total) * 100).toFixed(2);
-            return `${
-              data.labels[tooltipItem.dataIndex]
-            }: ${value} (${percentage}%)`;
+            return `${data.labels[tooltipItem.dataIndex]}: ${value} (${percentage}%)`;
           },
         },
       },
@@ -95,25 +97,25 @@ const DoughnutChart = ({ expensess, userDetails }) => {
         },
         padding: 10,
       },
-      sum: {
-        afterDraw: (chart) => {
-          const {
-            ctx,
-            chartArea: { left, right, bottom },
-          } = chart;
-          ctx.save();
-          ctx.font = "bold 14px Arial";
-          ctx.fillStyle = "#000";
-          ctx.textAlign = "center";
-          ctx.fillText(`Total: ${total}`, (left + right) / 2, bottom + 30);
-        },
-      },
+      // sum: {
+      //   afterDraw: (chart) => {
+      //     const {
+      //       ctx,
+      //       chartArea: { left, right, bottom },
+      //     } = chart;
+      //     ctx.save();
+      //     ctx.font = "bold 14px Arial";
+      //     ctx.fillStyle = "#000";
+      //     ctx.textAlign = "center";
+      //     ctx.fillText(`Total: ${total}`, (left + right) / 2, bottom + 30);
+      //   },
+      // },
     },
   };
 
   return (
     <div>
-      <Doughnut  data={data} options={options} />
+      <Doughnut data={data} options={options} />
     </div>
   );
 };
