@@ -5,7 +5,10 @@ function BarChart(props) {
     <div className="bg-white shadow-md rounded-lg p-5">
       <div className="font-bold">Last Week</div>
       <div>
-        <VerticalChart expensess={props.expensess} />
+        <VerticalChart
+          expensess={props.expensess}
+          userDetails={props.userDetails}
+        />
       </div>
     </div>
   );

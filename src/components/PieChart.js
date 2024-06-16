@@ -7,7 +7,10 @@ function PieChart(props) {
     <div className="bg-white shadow-md rounded-lg p-5 w-full">
       <div className="font-bold">This Month</div>
       <div>
-        <DoughnutChart expensess={props.expensess} />
+        <DoughnutChart
+          expensess={props.expensess}
+          userDetails={props.userDetails}
+        />
       </div>
     </div>
   );

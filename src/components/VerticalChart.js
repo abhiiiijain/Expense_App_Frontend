@@ -14,10 +14,18 @@ import { format, subDays, isToday, isYesterday } from "date-fns";
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, Title);
 
-const VerticalChart = (props) => {
+const VerticalChart = ({ expensess, userDetails }) => {
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
 
   useEffect(() => {
+    if (!userDetails) {
+      return;
+    }
+
+    const userExpenses = expensess.filter(
+      (expense) => expense.email === userDetails.email
+    );
+
     // Generate the labels for the past 7 days with Today and Yesterday labels
     const labels = Array.from({ length: 7 }, (_, i) => {
       const date = subDays(new Date(), i);
@@ -39,7 +47,7 @@ const VerticalChart = (props) => {
     };
 
     // Aggregate data by category and date
-    props.expensess.forEach((expense) => {
+    userExpenses.forEach((expense) => {
       const expenseDate = new Date(expense.createdAt);
       let label;
       if (isToday(expenseDate)) {
@@ -78,7 +86,7 @@ const VerticalChart = (props) => {
     });
 
     setChartData({ labels, datasets });
-  }, [props.expensess]);
+  }, [expensess, userDetails]);
 
   const options = {
     responsive: true,
