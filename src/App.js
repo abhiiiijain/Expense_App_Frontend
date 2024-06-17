@@ -91,6 +91,7 @@ function App() {
                   src={userDetails.photo || "./icon.png"}
                   width={"40%"}
                   style={{ borderRadius: "50%" }}
+                  alt="User icon"
                 />
                 {showLogout && (
                   <button

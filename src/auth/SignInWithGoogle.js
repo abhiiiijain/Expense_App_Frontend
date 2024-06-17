@@ -31,7 +31,11 @@ function SignInwithGoogle() {
       <div
         className="flex justify-center cursor-pointer mt-2"
         onClick={googleLogin}>
-        <img src={require("../google.png")} className="w-1/2" />
+        <img
+          src={require("../google.png")}
+          className="w-1/2"
+          alt="Google logo"
+        />
       </div>
     </div>
   );
