@@ -11,35 +11,37 @@ import Register from "./auth/Register";
 import App from "./App";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-// import Profile from "./auth/Profile";
 
 function Authentication() {
   const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true); // Add a loading state
 
   useEffect(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       setUser(user);
+      setLoading(false); // Set loading to false once auth state is resolved
     });
     return () => unsubscribe();
   }, []);
 
+  if (loading) {
+    return <div>Loading...</div>; // Show a loading state while checking auth status
+  }
+
+  console.log("user:", user);
+
   return (
     <>
-      {/* routing  */}
       <Router basename="/">
         <div>
-          {/* <div className="min-h-screen flex flex-col font-sans font-normal">
-          <div className="flex justify-center flex-col text-left w-full h-full">
-            <div className="w-112 mx-auto bg-white shadow-lg p-10 rounded-lg transition-all duration-300"> */}
           <Routes>
             <Route
               path="/"
-              element={user ? <Navigate to="/app" /> : <Login />}
+              element={user ? <Navigate to="/app" /> : <Navigate to="/login" />}
             />
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
-            {/* <Route path="/profile" element={<Profile />} /> */}
-            <Route path="/app" element={<App />} />
+            <Route path="/app" element={user ? <App /> : <Navigate to="/login" />} />
           </Routes>
           <ToastContainer />
         </div>
