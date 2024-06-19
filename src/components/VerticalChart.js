@@ -99,7 +99,7 @@ const VerticalChart = ({ expensess, userDetails }) => {
     responsive: true,
     plugins: {
       legend: {
-        display: true,
+        display: false,
         position: "right",
       },
       tooltip: {
