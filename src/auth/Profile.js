@@ -32,33 +32,35 @@ function Profile() {
     }
   }
   return (
-    <div>
-      {userDetails ? (
-        <>
-          <div style={{ display: "flex", justifyContent: "center" }}>
-            <img
-              src={userDetails.photo}
-              width={"40%"}
-              alt="User"
-              style={{ borderRadius: "50%" }}
-            />
-          </div>
-          <h3>Welcome {userDetails.firstName}</h3>
-          <div>
-            <p>Email: {userDetails.email}</p>
-            <p>First Name: {userDetails.firstName}</p>
-            <p>Last Name: {userDetails.lastName}</p>
-          </div>
-          <button
-            className="px-4 py-2 bg-blue-500 text-white font-semibold rounded"
-            onClick={handleLogout}>
-            Logout
-          </button>
-        </>
-      ) : (
-        <p>You are not logged In</p>
-      )}
-    </div>
+    <>
+      <div>
+        {userDetails ? (
+          <>
+            <div style={{ display: "flex", justifyContent: "center" }}>
+              <img
+                src={userDetails.photo}
+                width={"40%"}
+                alt="User"
+                style={{ borderRadius: "50%" }}
+              />
+            </div>
+            <h3>Welcome {userDetails.firstName}</h3>
+            <div>
+              <p>Email: {userDetails.email}</p>
+              <p>First Name: {userDetails.firstName}</p>
+              <p>Last Name: {userDetails.lastName}</p>
+            </div>
+            <button
+              className="px-4 py-2 bg-blue-500 text-white font-semibold rounded"
+              onClick={handleLogout}>
+              Logout
+            </button>
+          </>
+        ) : (
+          <p>You are not logged In</p>
+        )}
+      </div>
+    </>
   );
 }
 export default Profile;

@@ -7,8 +7,8 @@ import axios from "axios";
 import { auth, db } from "./auth/Firebase";
 import { doc, getDoc } from "firebase/firestore";
 
-// export const BASE_URL = "http://localhost:5000/api/v1/";
-export const BASE_URL = "https://expenseappbackend-bqd2.onrender.com/api/v1/";
+export const BASE_URL = "http://localhost:5000/api/v1/";
+// export const BASE_URL = "https://expenseappbackend-bqd2.onrender.com/api/v1/";
 
 function App() {
   // profile
@@ -23,7 +23,7 @@ function App() {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         setUserDetails(docSnap.data());
-        console.log(docSnap.data());
+        // console.log(docSnap.data());
       } else {
         console.log("User is not logged in");
       }
@@ -34,7 +34,7 @@ function App() {
     fetchUserData();
   }, []);
 
-  // console.log(userDetails);
+  console.log(userDetails);
 
   async function handleLogout() {
     try {
@@ -52,11 +52,11 @@ function App() {
   const getExpenses = async () => {
     const response = await axios.get(`${BASE_URL}get-expenses`);
     setExpenses(response.data);
-    console.log(response.data);
+    // console.log(response.data);
   };
 
   const addExpense = async (expense) => {
-    console.log(expense);
+    // console.log(expense);
     const response = await axios
       .post(`${BASE_URL}add-expense`, expense)
       .catch((err) => {

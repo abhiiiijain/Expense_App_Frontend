@@ -47,7 +47,9 @@ const Transactions = ({ expensess, userDetails }) => {
       return true;
     }
     if (selectedSubcategory === "All") {
-      return subcategories[selectedMainCategory].includes(transaction.subcategory);
+      return subcategories[selectedMainCategory].includes(
+        transaction.subcategory
+      );
     }
     return transaction.subcategory === selectedSubcategory;
   });
@@ -79,76 +81,81 @@ const Transactions = ({ expensess, userDetails }) => {
   const groupedTransactions = groupTransactionsByDate(filteredTransactions);
 
   return (
-    <div className="bg-white flex-wrap shadow-md rounded-lg p-5 w-full">
-      <div className="p-2">
-        <div className="flex flex-wrap items-center justify-between mb-4 w-full">
-          <h3 className="text-xl font-bold mb-4">Transactions</h3>
-          <select
-            value={selectedMainCategory}
-            onChange={(e) => {
-              setSelectedMainCategory(e.target.value);
-              setSelectedSubcategory("All");
-            }}
-            className="bg-white-200 border text-black px-3 py-1 rounded"
-          >
-            {mainCategories.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
-        </div>
-        {selectedMainCategory !== "All" && (
-          <>
-            <div>
-              <button
-                className={`${
-                  selectedSubcategory === "All" ? "bg-blue-400 border-blue-400" : "bg-transparent border-blue-400"
-                } text-black px-3 py-1 rounded mr-2 border`}
-                onClick={() => setSelectedSubcategory("All")}
-              >
-                All
-              </button>
-
-              {subcategories[selectedMainCategory].map((subcategory) => (
+    <>
+      <div className="bg-white flex-wrap shadow-md rounded-lg p-5 w-full">
+        <div className="p-2">
+          <div className="flex flex-wrap items-center justify-between mb-4 w-full">
+            <h3 className="text-xl font-bold mb-4">Transactions</h3>
+            <select
+              value={selectedMainCategory}
+              onChange={(e) => {
+                setSelectedMainCategory(e.target.value);
+                setSelectedSubcategory("All");
+              }}
+              className="bg-white-200 border text-black px-3 py-1 rounded">
+              {mainCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+          {selectedMainCategory !== "All" && (
+            <>
+              <div>
                 <button
-                  key={subcategory}
                   className={`${
-                    selectedSubcategory === subcategory
+                    selectedSubcategory === "All"
                       ? "bg-blue-400 border-blue-400"
                       : "bg-transparent border-blue-400"
                   } text-black px-3 py-1 rounded mr-2 border`}
-                  onClick={() => setSelectedSubcategory(subcategory)}
-                >
-                  <div className="text-sky font-xs">{subcategory}</div>
+                  onClick={() => setSelectedSubcategory("All")}>
+                  All
                 </button>
+
+                {subcategories[selectedMainCategory].map((subcategory) => (
+                  <button
+                    key={subcategory}
+                    className={`${
+                      selectedSubcategory === subcategory
+                        ? "bg-blue-400 border-blue-400"
+                        : "bg-transparent border-blue-400"
+                    } text-black px-3 py-1 rounded mr-2 border`}
+                    onClick={() => setSelectedSubcategory(subcategory)}>
+                    <div className="text-sky font-xs">{subcategory}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Expenses showing */}
+        <div>
+          {Object.keys(groupedTransactions).map((date) => (
+            <div key={date}>
+              <h4 className="font-thin font-sans mb-2">{date}</h4>
+              {groupedTransactions[date].map((transaction, index) => (
+                <div key={index} className="flex items-center mb-4">
+                  <span className="text-2xl mr-3">{transaction.icon}</span>
+                  <div>
+                    <div className="font-bold font-serif">
+                      {transaction.title}
+                    </div>
+                    <div className="text-gray-500 text-sm font-serif">
+                      {transaction.subcategory}
+                    </div>
+                  </div>
+                  <div className="ml-auto text-grey-500">{`-₹${transaction.amount.toFixed(
+                    2
+                  )}`}</div>
+                </div>
               ))}
             </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
-
-      {/* Expenses showing */}
-      <div>
-        {Object.keys(groupedTransactions).map((date) => (
-          <div key={date}>
-            <h4 className="font-thin font-sans mb-2">{date}</h4>
-            {groupedTransactions[date].map((transaction, index) => (
-              <div key={index} className="flex items-center mb-4">
-                <span className="text-2xl mr-3">{transaction.icon}</span>
-                <div>
-                  <div className="font-bold font-serif">{transaction.title}</div>
-                  <div className="text-gray-500 text-sm font-serif">{transaction.subcategory}</div>
-                </div>
-                <div className="ml-auto text-grey-500">{`-₹${transaction.amount.toFixed(
-                  2
-                )}`}</div>
-              </div>
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
+    </>
   );
 };
 

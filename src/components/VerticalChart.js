@@ -99,7 +99,7 @@ const VerticalChart = ({ expensess, userDetails }) => {
     responsive: true,
     plugins: {
       legend: {
-        display: false,
+        display: true,
         position: "right",
       },
       tooltip: {
@@ -109,32 +109,32 @@ const VerticalChart = ({ expensess, userDetails }) => {
           },
         },
       },
-      afterDatasetsDraw: {
-        id: "afterDatasetsDraw",
-        afterDatasetsDraw(chart) {
-          const { ctx, scales } = chart;
-          const xScale = scales.x;
-          const yScale = scales.y;
+      // afterDatasetsDraw: {
+      //   id: "afterDatasetsDraw",
+      //   afterDatasetsDraw(chart) {
+      //     const { ctx, scales } = chart;
+      //     const xScale = scales.x;
+      //     const yScale = scales.y;
 
-          chartData.labels.forEach((label, index) => {
-            let sum = 0;
-            chartData.datasets.forEach((dataset) => {
-              if (dataset.data[index] !== null) {
-                sum += dataset.data[index];
-              }
-            });
-            const x = xScale.getPixelForValue(label);
-            const y = yScale.getPixelForValue(sum);
+      //     chartData.labels.forEach((label, index) => {
+      //       let sum = 0;
+      //       chartData.datasets.forEach((dataset) => {
+      //         if (dataset.data[index] !== null) {
+      //           sum += dataset.data[index];
+      //         }
+      //       });
+      //       const x = xScale.getPixelForValue(label);
+      //       const y = yScale.getPixelForValue(sum);
 
-            ctx.save();
-            ctx.font = "bold 12px Arial";
-            ctx.fillStyle = "#000";
-            ctx.textAlign = "center";
-            ctx.fillText(`₹${sum}`, x, y - 10);
-            ctx.restore();
-          });
-        },
-      },
+      //       ctx.save();
+      //       ctx.font = "bold 12px Arial";
+      //       ctx.fillStyle = "#000";
+      //       ctx.textAlign = "center";
+      //       ctx.fillText(`₹${sum}`, x, y - 10);
+      //       ctx.restore();
+      //     });
+      //   },
+      // },
     },
     scales: {
       x: {
@@ -153,9 +153,11 @@ const VerticalChart = ({ expensess, userDetails }) => {
   };
 
   return (
-    <div className="flex flex-col items-center mt-5">
-      <Bar data={chartData} options={options} />
-    </div>
+    <>
+      <div className="flex flex-col items-center mt-5">
+        <Bar data={chartData} options={options} />
+      </div>
+    </>
   );
 };
 

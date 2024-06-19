@@ -14,7 +14,7 @@ const DoughnutChart = ({ expensess, userDetails }) => {
   const currentYear = new Date().getFullYear();
 
   const userExpenses = expensess.filter(
-    (expense) => 
+    (expense) =>
       expense.email === userDetails.email &&
       new Date(expense.createdAt).getMonth() === currentMonth &&
       new Date(expense.createdAt).getFullYear() === currentYear
@@ -64,7 +64,7 @@ const DoughnutChart = ({ expensess, userDetails }) => {
   const options = {
     plugins: {
       legend: {
-        display: false,
+        display: true,
         position: "right",
         labels: {
           usePointStyle: true,
@@ -81,7 +81,9 @@ const DoughnutChart = ({ expensess, userDetails }) => {
           label: function (tooltipItem) {
             const value = tooltipItem.raw;
             const percentage = ((value / total) * 100).toFixed(2);
-            return `${data.labels[tooltipItem.dataIndex]}: ${value} (${percentage}%)`;
+            return `${
+              data.labels[tooltipItem.dataIndex]
+            }: ${value} (${percentage}%)`;
           },
         },
       },
@@ -114,9 +116,11 @@ const DoughnutChart = ({ expensess, userDetails }) => {
   };
 
   return (
-    <div>
-      <Doughnut data={data} options={options} />
-    </div>
+    <>
+      <div>
+        <Doughnut data={data} options={options} />
+      </div>
+    </>
   );
 };
 

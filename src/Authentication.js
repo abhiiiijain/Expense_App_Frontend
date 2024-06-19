@@ -28,7 +28,7 @@ function Authentication() {
     return <div>Loading...</div>; // Show a loading state while checking auth status
   }
 
-  console.log("user:", user);
+  // console.log("user:", user);
 
   return (
     <>
