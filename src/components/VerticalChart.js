@@ -21,16 +21,16 @@ ChartJS.register(
   Title
 );
 
-const VerticalChart = ({ expensess, userDetails }) => {
+const VerticalChart = ({ expensess, user }) => {
   const [chartData, setChartData] = useState({ labels: [], datasets: [] });
 
   useEffect(() => {
-    if (!userDetails) {
+    if (!user) {
       return;
     }
 
     const userExpenses = expensess.filter(
-      (expense) => expense.email === userDetails.email
+      (expense) => expense.email === user.email
     );
 
     // Generate the labels for the past 7 days with Today and Yesterday labels
@@ -93,7 +93,7 @@ const VerticalChart = ({ expensess, userDetails }) => {
     });
 
     setChartData({ labels, datasets });
-  }, [expensess, userDetails]);
+  }, [expensess, user]);
 
   const options = {
     responsive: true,

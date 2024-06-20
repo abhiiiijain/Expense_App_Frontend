@@ -8,7 +8,7 @@ function BarChart(props) {
         <div>
           <VerticalChart
             expensess={props.expensess}
-            userDetails={props.userDetails}
+            user={props.user}
           />
         </div>
       </div>

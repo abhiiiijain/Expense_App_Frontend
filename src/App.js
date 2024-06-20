@@ -4,37 +4,50 @@ import Transactions from "./components/Transactions";
 import BarChart from "./components/BarChart";
 import AddExpenseModal from "./components/AddExpenseModal";
 import axios from "axios";
-import { auth, db } from "./auth/Firebase";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  auth,
+  // db
+} from "./auth/Firebase";
+// import { doc, getDoc } from "firebase/firestore";
 
 export const BASE_URL = "http://localhost:5000/api/v1/";
 // export const BASE_URL = "https://expenseappbackend-bqd2.onrender.com/api/v1/";
 
 function App() {
   // profile
-  const [userDetails, setUserDetails] = useState(null);
+  // const [userDetails, setUserDetails] = useState(null);
+  const [user, setUser] = useState(null);
   const [showLogout, setShowLogout] = useState(false);
 
-  const fetchUserData = async () => {
-    auth.onAuthStateChanged(async (user) => {
-      console.log(user);
+  // const fetchUserData = async () => {
+  //   auth.onAuthStateChanged(async (user) => {
+  //     console.log(user);
 
-      const docRef = doc(db, "Users", user.uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setUserDetails(docSnap.data());
-        // console.log(docSnap.data());
-      } else {
-        console.log("User is not logged in");
-      }
-    });
-  };
+  //     const docRef = doc(db, "Users", user.uid);
+  //     const docSnap = await getDoc(docRef);
+  //     if (docSnap.exists()) {
+  //       setUserDetails(docSnap.data());
+  //       // console.log(docSnap.data());
+  //     } else {
+  //       console.log("User is not logged in");
+  //     }
+  //   });
+  // };
+
+  // useEffect(() => {
+  //   fetchUserData();
+  // }, []);
+
+  // console.log(userDetails);
 
   useEffect(() => {
-    fetchUserData();
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setUser(user);
+    });
+    return () => unsubscribe();
   }, []);
 
-  console.log(userDetails);
+  console.log(user);
 
   async function handleLogout() {
     try {
@@ -76,9 +89,9 @@ function App() {
         <header className="w-[90%] flex justify-between items-center p-5">
           <img src="./logo.png" alt="Logo" className="h-10" />
 
-          {userDetails ? (
+          {user ? (
             <>
-              <h1>Welcome {userDetails.firstName}</h1>
+              <h1>Welcome {user.firstName}</h1>
               <div
                 style={{
                   display: "flex",
@@ -88,7 +101,7 @@ function App() {
                 }}
                 onClick={() => setShowLogout(!showLogout)}>
                 <img
-                  src={userDetails.photo || "./icon.png"}
+                  src={user.photo || "./icon.png"}
                   width={"40%"}
                   style={{ borderRadius: "50%" }}
                   alt="User icon"
@@ -108,17 +121,14 @@ function App() {
         </header>
         <main className="flex justify-center gap-10 p-3 w-full px-50">
           <div className="flex flex-col gap-10 w-[50%]">
-            <PieChart expensess={expenses} userDetails={userDetails} />
-            <BarChart expensess={expenses} userDetails={userDetails} />
+            <PieChart expensess={expenses} user={user} />
+            <BarChart expensess={expenses} user={user} />
           </div>
           <div className="flex flex-wrap w-[30%]">
-            <Transactions expensess={expenses} userDetails={userDetails} />
+            <Transactions expensess={expenses} user={user} />
           </div>
           <div className="fixed bottom-10 right-10">
-            <AddExpenseModal
-              AddExpense={addExpense}
-              userDetails={userDetails}
-            />
+            <AddExpenseModal AddExpense={addExpense} user={user} />
           </div>
         </main>
       </div>
