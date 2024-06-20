@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 
-const AddExpenseModal = ({ AddExpense, userDetails }) => {
+const AddExpenseModal = ({ AddExpense, user }) => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -91,10 +91,10 @@ const AddExpenseModal = ({ AddExpense, userDetails }) => {
       // __v: 0,
       // createdAt: isoString,
       // updatedAt: isoString,
-      email: userDetails.email, // Add user email to the expense object
+      email: user.email, // Add user email to the expense object
     };
 
-    console.log("User Details:", userDetails); // Log user details to the console
+    console.log("User Details:", user); // Log user details to the console
 
     try {
       await AddExpense(obj);

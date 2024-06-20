@@ -31,16 +31,16 @@ const subcategories = {
   ],
 };
 
-const Transactions = ({ expensess, userDetails }) => {
+const Transactions = ({ expensess, user }) => {
   const [selectedMainCategory, setSelectedMainCategory] = useState("All");
   const [selectedSubcategory, setSelectedSubcategory] = useState("All");
 
-  if (!userDetails) {
+  if (!user) {
     return null;
   }
 
   const filteredTransactions = expensess.filter((transaction) => {
-    if (transaction.email !== userDetails.email) {
+    if (transaction.email !== user.email) {
       return false;
     }
     if (selectedMainCategory === "All") {

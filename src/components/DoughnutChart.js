@@ -5,8 +5,8 @@ import ChartDataLabels from "chartjs-plugin-datalabels";
 
 ChartJS.register(ArcElement, Tooltip, Legend, ChartDataLabels);
 
-const DoughnutChart = ({ expensess, userDetails }) => {
-  if (!userDetails) {
+const DoughnutChart = ({ expensess, user }) => {
+  if (!user) {
     return null;
   }
 
@@ -15,7 +15,7 @@ const DoughnutChart = ({ expensess, userDetails }) => {
 
   const userExpenses = expensess.filter(
     (expense) =>
-      expense.email === userDetails.email &&
+      expense.email === user.email &&
       new Date(expense.createdAt).getMonth() === currentMonth &&
       new Date(expense.createdAt).getFullYear() === currentYear
   );

@@ -2,9 +2,9 @@ import React from "react";
 import DoughnutChart from "./DoughnutChart";
 
 function PieChart(props) {
-  const { expensess, userDetails } = props;
+  const { expensess, user } = props;
 
-  if (!userDetails) {
+  if (!user) {
     return null;
   }
 
@@ -13,7 +13,7 @@ function PieChart(props) {
 
   const userExpenses = expensess.filter(
     (expense) =>
-      expense.email === userDetails.email &&
+      expense.email === user.email &&
       new Date(expense.createdAt).getMonth() === currentMonth &&
       new Date(expense.createdAt).getFullYear() === currentYear
   );
@@ -43,7 +43,7 @@ function PieChart(props) {
       <div className="bg-white shadow-md rounded-lg p-5 w-full">
         <div className="font-bold">This Month</div>
         <div className="flex flex-row justify-center">
-          <DoughnutChart expensess={expensess} userDetails={userDetails} />
+          <DoughnutChart expensess={expensess} user={user} />
           <div className="ml-4">
             {categories.map((category) => (
               <div
