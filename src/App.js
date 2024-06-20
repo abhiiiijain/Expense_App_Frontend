@@ -10,8 +10,8 @@ import {
 } from "./auth/Firebase";
 // import { doc, getDoc } from "firebase/firestore";
 
-export const BASE_URL = "http://localhost:5000/api/v1/";
-// export const BASE_URL = "https://expenseappbackend-bqd2.onrender.com/api/v1/";
+// export const BASE_URL = "http://localhost:5000/api/v1/";
+export const BASE_URL = "https://expenseappbackend-bqd2.onrender.com/api/v1/";
 
 function App() {
   // profile
@@ -47,7 +47,7 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  console.log(user);
+  console.log("user",user);
 
   async function handleLogout() {
     try {
