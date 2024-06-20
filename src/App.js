@@ -65,7 +65,7 @@ function App() {
   const getExpenses = async () => {
     const response = await axios.get(`${BASE_URL}get-expenses`);
     setExpenses(response.data);
-    // console.log(response.data);
+    console.log(response.data);
   };
 
   const addExpense = async (expense) => {
@@ -91,7 +91,7 @@ function App() {
 
           {user ? (
             <>
-              <h1>Welcome {user.firstName}</h1>
+              {/* <h1>Welcome {user.firstName}</h1> */}
               <div
                 style={{
                   display: "flex",
