@@ -11,7 +11,7 @@ import {
 // import { doc, getDoc } from "firebase/firestore";
 
 // export const BASE_URL = "http://localhost:5000/api/v1/";
-export const BASE_URL = "https://expenseappbackend-bqd2.onrender.com/api/v1/";
+export const BASE_URL = "https://expense-app-backend-avc9.onrender.com/api/v1/";
 
 function App() {
   // profile
