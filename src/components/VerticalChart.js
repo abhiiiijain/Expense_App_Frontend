@@ -33,17 +33,14 @@ const VerticalChart = ({ expensess, user }) => {
       (expense) => expense.email === user.email
     );
 
-    // Generate the labels for the past 7 days with Today and Yesterday labels
-    const labels = Array.from({ length: 7 }, (_, i) => {
-      const date = subDays(new Date(), i);
-      if (isToday(date)) {
-        return "Today";
-      }
-      if (isYesterday(date)) {
-        return "Yesterday";
-      }
+    // Build last 7 days date objects and stable keys (yyyy-MM-dd) to avoid cross-year collisions
+    const last7Dates = Array.from({ length: 7 }, (_, i) => subDays(new Date(), i)).reverse();
+    const dateKeys = last7Dates.map((d) => format(d, "yyyy-MM-dd"));
+    const labels = last7Dates.map((date) => {
+      if (isToday(date)) return "Today";
+      if (isYesterday(date)) return "Yesterday";
       return format(date, "do MMM");
-    }).reverse();
+    });
 
     // Initialize sums for each category
     const sums = {
@@ -56,16 +53,8 @@ const VerticalChart = ({ expensess, user }) => {
     // Aggregate data by category and date
     userExpenses.forEach((expense) => {
       const expenseDate = new Date(expense.createdAt);
-      let label;
-      if (isToday(expenseDate)) {
-        label = "Today";
-      } else if (isYesterday(expenseDate)) {
-        label = "Yesterday";
-      } else {
-        label = format(expenseDate, "do MMM");
-      }
-
-      const dayIndex = labels.indexOf(label);
+      const key = format(expenseDate, "yyyy-MM-dd");
+      const dayIndex = dateKeys.indexOf(key);
       if (dayIndex !== -1) {
         sums[expense.category][dayIndex] += expense.amount;
       }
@@ -82,13 +71,14 @@ const VerticalChart = ({ expensess, user }) => {
         data: filteredData,
         backgroundColor:
           category === "Essential Expenses"
-            ? "#36A2EB"
+            ? "#3B82F6"
             : category === "Non-Essential Expenses"
-            ? "#FFCE56"
-            : category === "Savings and Investments"
-            ? "#4BC0C0"
-            : "#C0C0C0",
+              ? "#F59E0B"
+              : category === "Savings and Investments"
+                ? "#10B981"
+                : "#9CA3AF",
         stack: "Stack 0",
+        borderRadius: 6,
       };
     });
 
@@ -109,53 +99,47 @@ const VerticalChart = ({ expensess, user }) => {
           },
         },
       },
-      // afterDatasetsDraw: {
-      //   id: "afterDatasetsDraw",
-      //   afterDatasetsDraw(chart) {
-      //     const { ctx, scales } = chart;
-      //     const xScale = scales.x;
-      //     const yScale = scales.y;
-
-      //     chartData.labels.forEach((label, index) => {
-      //       let sum = 0;
-      //       chartData.datasets.forEach((dataset) => {
-      //         if (dataset.data[index] !== null) {
-      //           sum += dataset.data[index];
-      //         }
-      //       });
-      //       const x = xScale.getPixelForValue(label);
-      //       const y = yScale.getPixelForValue(sum);
-
-      //       ctx.save();
-      //       ctx.font = "bold 12px Arial";
-      //       ctx.fillStyle = "#000";
-      //       ctx.textAlign = "center";
-      //       ctx.fillText(`₹${sum}`, x, y - 10);
-      //       ctx.restore();
-      //     });
-      //   },
-      // },
     },
     scales: {
       x: {
         stacked: true,
+        grid: {
+          display: false,
+        },
+        ticks: {
+          color: "#6B7280",
+          font: {
+            weight: "bold",
+          },
+        },
       },
       y: {
         stacked: true,
         beginAtZero: true,
+        grid: {
+          color: "#F3F4F6",
+        },
         ticks: {
           callback: function (value) {
             return `₹${value}`;
           },
+          color: "#6B7280",
         },
+      },
+    },
+    elements: {
+      bar: {
+        borderRadius: 6,
       },
     },
   };
 
   return (
     <>
-      <div className="flex flex-col items-center mt-5">
-        <Bar data={chartData} options={options} />
+      <div className="flex flex-col items-center mt-5 w-full">
+        <div className="w-full h-64 sm:h-72">
+          <Bar data={chartData} options={options} />
+        </div>
       </div>
     </>
   );

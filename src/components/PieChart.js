@@ -40,22 +40,27 @@ function PieChart(props) {
 
   return (
     <>
-      <div className="bg-white shadow-md rounded-lg p-5 w-full">
-        <div className="font-bold">This Month</div>
-        <div className="flex flex-row justify-center">
-          <DoughnutChart expensess={expensess} user={user} />
-          <div className="ml-4">
+      <div className="bg-white shadow-lg rounded-2xl p-6 w-full ring-1 ring-gray-100">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <div className="text-xs uppercase tracking-wider text-gray-400">Overview</div>
+            <div className="font-extrabold text-gray-900">This Month</div>
+          </div>
+        </div>
+        <div className="flex flex-col sm:flex-row justify-center items-center gap-6">
+          <div className="w-full sm:w-auto max-w-[260px] min-w-[220px]">
+            <DoughnutChart expensess={expensess} user={user} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 w-full sm:w-auto">
             {categories.map((category) => (
-              <div
-                key={category.name}
-                className="flex flex-row items-center mb-2">
-                <div
-                  className="w-8 h-8 mr-2 rounded-md"
-                  style={{ backgroundColor: category.color }}></div>
-                <div className="flex flex-col">
-                  <div>{category.name}</div>
-                  <div>₹{categorySums[category.name].toFixed(2)}</div>
+              <div key={category.name} className="flex items-center justify-between bg-gray-50 border border-gray-100 rounded-xl py-2.5 px-3">
+                <div className="flex items-center">
+                  <div
+                    className="w-3.5 h-3.5 mr-3 rounded-sm"
+                    style={{ backgroundColor: category.color }}></div>
+                  <div className="text-sm text-gray-700">{category.name}</div>
                 </div>
+                <div className="text-sm font-bold text-gray-900">₹{categorySums[category.name].toFixed(2)}</div>
               </div>
             ))}
           </div>

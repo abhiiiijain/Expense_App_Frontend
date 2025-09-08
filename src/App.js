@@ -4,90 +4,99 @@ import Transactions from "./components/Transactions";
 import BarChart from "./components/BarChart";
 import AddExpenseModal from "./components/AddExpenseModal";
 import axios from "axios";
-import {
-  auth,
-  // db
-} from "./auth/Firebase";
+import { getStoredAuth, logout, API_BASE_URL, authHeader, clearAuth } from "./auth/authService";
 // import { doc, getDoc } from "firebase/firestore";
 
 // export const BASE_URL = "http://localhost:5000/api/v1/";
-export const BASE_URL = "https://expense-app-backend-avc9.onrender.com/api/v1/";
+// Using API_BASE_URL from authService
 
 function App() {
-  // profile
-  // const [userDetails, setUserDetails] = useState(null);
   const [user, setUser] = useState(null);
   const [showLogout, setShowLogout] = useState(false);
 
-  // const fetchUserData = async () => {
-  //   auth.onAuthStateChanged(async (user) => {
-  //     console.log(user);
 
-  //     const docRef = doc(db, "Users", user.uid);
-  //     const docSnap = await getDoc(docRef);
-  //     if (docSnap.exists()) {
-  //       setUserDetails(docSnap.data());
-  //       // console.log(docSnap.data());
-  //     } else {
-  //       console.log("User is not logged in");
-  //     }
-  //   });
-  // };
-
-  // useEffect(() => {
-  //   fetchUserData();
-  // }, []);
-
-  // console.log(userDetails);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setUser(user);
-    });
-    return () => unsubscribe();
+    const { user } = getStoredAuth();
+    setUser(user);
   }, []);
 
-  console.log("user",user);
+  console.log("user", user);
 
   async function handleLogout() {
-    try {
-      await auth.signOut();
-      window.location.href = "/login";
-      console.log("User logged out successfully!");
-    } catch (error) {
-      console.error("Error logging out:", error.message);
-    }
+    logout();
+    window.location.href = "/login";
+    console.log("User logged out successfully!");
   }
 
   const [error, setError] = useState(null);
   let [expenses, setExpenses] = useState([]);
+  let [incomes, setIncomes] = useState([]);
 
   const getExpenses = async () => {
-    const response = await axios.get(`${BASE_URL}get-expenses`);
-    setExpenses(response.data);
-    console.log(response.data);
+    try {
+      const response = await axios.get(`${API_BASE_URL}get-expenses`, {
+        headers: authHeader(),
+      });
+      setExpenses(response.data);
+      console.log(response.data);
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        clearAuth();
+        window.location.href = "/login";
+      }
+    }
+  };
+
+  const getIncomes = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}get-incomes`, {
+        headers: authHeader(),
+      });
+      setIncomes(response.data);
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        clearAuth();
+        window.location.href = "/login";
+      }
+    }
   };
 
   const addExpense = async (expense) => {
-    // console.log(expense);
-    const response = await axios
-      .post(`${BASE_URL}add-expense`, expense)
-      .catch((err) => {
-        setError(err.response.data.message);
+    try {
+      const endpoint = expense.type === "income" ? "add-income" : "add-expense";
+      await axios.post(`${API_BASE_URL}${endpoint}`, expense, {
+        headers: authHeader(),
       });
-    getExpenses();
+      getExpenses();
+      getIncomes();
+    } catch (err) {
+      setError(err?.response?.data?.message || "Failed to add expense");
+      if (err?.response?.status === 401) {
+        clearAuth();
+        window.location.href = "/login";
+      }
+    }
   };
 
   useEffect(() => {
     getExpenses();
+    getIncomes();
   }, []);
 
   return (
     <>
       {/* main section */}
       <div className="bg-gray-100 relative flex flex-col items-center">
-        <header className="w-[90%] flex justify-between items-center p-5">
+        <header className="w-[90%] flex justify-between items-center p-5 relative">
           <img src="./logo.png" alt="Logo" className="h-10" />
+
+          {user && (
+            <div className="absolute left-1/2 -translate-x-1/2 text-gray-900 font-extrabold text-lg truncate max-w-[60%] text-center">
+              Welcome{" "}
+              {((user.firstName || "") + " " + (user.lastName || "")).trim() || user.email}
+            </div>
+          )}
 
           {user ? (
             <>
@@ -109,7 +118,10 @@ function App() {
                 {showLogout && (
                   <button
                     className="absolute top-0 left-full ml-2 px-4 py-2 bg-blue-500 text-white font-semibold rounded"
-                    onClick={handleLogout}>
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleLogout();
+                    }}>
                     Logout
                   </button>
                 )}
@@ -119,15 +131,15 @@ function App() {
             <p>Not Logged In</p>
           )}
         </header>
-        <main className="flex justify-center gap-10 p-3 w-full px-50">
-          <div className="flex flex-col gap-10 w-[50%]">
+        <main className="flex flex-col md:flex-row justify-center gap-6 md:gap-10 p-3 w-full">
+          <div className="flex flex-col gap-6 md:gap-10 w-full md:w-1/2">
             <PieChart expensess={expenses} user={user} />
             <BarChart expensess={expenses} user={user} />
           </div>
-          <div className="flex flex-wrap w-[30%]">
-            <Transactions expensess={expenses} user={user} />
+          <div className="flex flex-wrap w-full md:w-1/3 mt-6 md:mt-0">
+            <Transactions expenses={expenses} incomes={incomes} user={user} />
           </div>
-          <div className="fixed bottom-10 right-10">
+          <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10">
             <AddExpenseModal AddExpense={addExpense} user={user} />
           </div>
         </main>

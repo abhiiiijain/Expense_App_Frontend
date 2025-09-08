@@ -55,8 +55,11 @@ const DoughnutChart = ({ expensess, user }) => {
     datasets: [
       {
         data: [sum1, sum2, sum3, sum4],
-        backgroundColor: ["#36A2EB", "#FFCE56", "#4BC0C0", "#C0C0C0"],
-        hoverBackgroundColor: ["#36A2EB", "#FFCE56", "#4BC0C0", "#C0C0C0"],
+        backgroundColor: ["#3B82F6", "#F59E0B", "#10B981", "#9CA3AF"],
+        hoverBackgroundColor: ["#2563EB", "#D97706", "#059669", "#6B7280"],
+        borderWidth: 2,
+        borderColor: "#fff",
+        cutout: "65%",
       },
     ],
   };
@@ -81,9 +84,7 @@ const DoughnutChart = ({ expensess, user }) => {
           label: function (tooltipItem) {
             const value = tooltipItem.raw;
             const percentage = ((value / total) * 100).toFixed(2);
-            return `${
-              data.labels[tooltipItem.dataIndex]
-            }: ${value} (${percentage}%)`;
+            return `${data.labels[tooltipItem.dataIndex]}: ${value} (${percentage}%)`;
           },
         },
       },
@@ -92,33 +93,28 @@ const DoughnutChart = ({ expensess, user }) => {
           const percentage = percentages[context.dataIndex];
           return `${percentage}%`;
         },
-        color: "#000",
+        color: "#111827",
         borderRadius: 3,
         font: {
-          weight: "light",
+          weight: "bold",
+          size: 12,
         },
         padding: 10,
       },
-      // sum: {
-      //   afterDraw: (chart) => {
-      //     const {
-      //       ctx,
-      //       chartArea: { left, right, bottom },
-      //     } = chart;
-      //     ctx.save();
-      //     ctx.font = "bold 14px Arial";
-      //     ctx.fillStyle = "#000";
-      //     ctx.textAlign = "center";
-      //     ctx.fillText(`Total: ${total}`, (left + right) / 2, bottom + 30);
-      //   },
-      // },
     },
+    maintainAspectRatio: false,
   };
 
   return (
     <>
-      <div>
+      <div className="relative w-full h-56 sm:h-64">
         <Doughnut data={data} options={options} />
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className="text-center">
+            <div className="text-xs text-gray-500 uppercase tracking-wide">Total</div>
+            <div className="text-xl font-extrabold text-gray-900">₹{total.toFixed(2)}</div>
+          </div>
+        </div>
       </div>
     </>
   );
