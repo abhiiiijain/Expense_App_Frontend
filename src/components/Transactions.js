@@ -48,7 +48,7 @@ const incomeSubcategories = {
   "Other Income": ["Other"],
 };
 
-const Transactions = ({ expenses = [], incomes = [], user }) => {
+const Transactions = ({ expenses = [], incomes = [], user, onDeleteExpense, onDeleteIncome }) => {
   const [selectedMainCategory, setSelectedMainCategory] = useState("All");
   const [selectedSubcategory, setSelectedSubcategory] = useState("All");
   const [selectedIncomeMainCategory, setSelectedIncomeMainCategory] =
@@ -194,6 +194,20 @@ const Transactions = ({ expenses = [], incomes = [], user }) => {
                     <div className="ml-auto font-bold text-gray-900">
                       {`-₹${transaction.amount.toFixed(2)}`}
                     </div>
+                    <button
+                      type="button"
+                      title="Delete expense"
+                      aria-label="Delete expense"
+                      className="ml-3 text-red-600 hover:text-red-700"
+                      onClick={() => {
+                        if (!onDeleteExpense) return;
+                        if (window.confirm("Are you sure you want to delete this expense?")) {
+                          onDeleteExpense(transaction._id);
+                        }
+                      }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))}
               </div>
@@ -281,6 +295,20 @@ const Transactions = ({ expenses = [], incomes = [], user }) => {
                     <div className="ml-auto font-bold text-green-700">
                       {`+₹${transaction.amount.toFixed(2)}`}
                     </div>
+                    <button
+                      type="button"
+                      title="Delete income"
+                      aria-label="Delete income"
+                      className="ml-3 text-red-600 hover:text-red-700"
+                      onClick={() => {
+                        if (!onDeleteIncome) return;
+                        if (window.confirm("Are you sure you want to delete this income?")) {
+                          onDeleteIncome(transaction._id);
+                        }
+                      }}
+                    >
+                      ✕
+                    </button>
                   </div>
                 ))}
               </div>

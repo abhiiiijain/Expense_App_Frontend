@@ -79,6 +79,34 @@ function App() {
     }
   };
 
+  const deleteExpense = async (id) => {
+    try {
+      await axios.delete(`${API_BASE_URL}delete-expense/${id}`, {
+        headers: authHeader(),
+      });
+      setExpenses((prev) => prev.filter((e) => e._id !== id));
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        clearAuth();
+        window.location.href = "/login";
+      }
+    }
+  };
+
+  const deleteIncome = async (id) => {
+    try {
+      await axios.delete(`${API_BASE_URL}delete-income/${id}`, {
+        headers: authHeader(),
+      });
+      setIncomes((prev) => prev.filter((i) => i._id !== id));
+    } catch (err) {
+      if (err?.response?.status === 401) {
+        clearAuth();
+        window.location.href = "/login";
+      }
+    }
+  };
+
   useEffect(() => {
     getExpenses();
     getIncomes();
@@ -137,7 +165,13 @@ function App() {
             <BarChart expensess={expenses} user={user} />
           </div>
           <div className="flex flex-wrap w-full md:w-1/3 mt-6 md:mt-0">
-            <Transactions expenses={expenses} incomes={incomes} user={user} />
+            <Transactions
+              expenses={expenses}
+              incomes={incomes}
+              user={user}
+              onDeleteExpense={deleteExpense}
+              onDeleteIncome={deleteIncome}
+            />
           </div>
           <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10">
             <AddExpenseModal AddExpense={addExpense} user={user} />
