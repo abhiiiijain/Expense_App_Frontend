@@ -11,6 +11,12 @@ function required(name) {
 }
 
 export function getApiBaseUrl() {
+  const baseUrl = process.env.REACT_APP_API_BASE_URL;
+
+  if (baseUrl) {
+    return ensureTrailingSlash(baseUrl);
+  }
+
   const host = required("REACT_APP_API_HOST");
   const port = required("REACT_APP_API_PORT");
   const path = required("REACT_APP_API_PATH");
