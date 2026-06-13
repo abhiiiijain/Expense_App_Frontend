@@ -1,15 +1,13 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { Bar } from "react-chartjs-2";
 import "../config/chartSetup";
-import { useWeeklyBarChartData, useWeeklyExpenses } from "../hooks/useExpenseAnalytics";
+import { useWeeklyBarChartData } from "../hooks/useExpenseAnalytics";
 import { formatChartAxis, formatCurrency } from "../utils/formatCurrency";
 import EmptyState from "./EmptyState";
 
 const VerticalChart = ({ expenses }) => {
-  const weeklyExpenses = useWeeklyExpenses(expenses);
-  const chartData = useWeeklyBarChartData(expenses);
-  const hasData = weeklyExpenses.length > 0;
-
+  const { labels, datasets, hasData } = useWeeklyBarChartData(expenses);
+  const chartData = { labels, datasets };
   const options = useMemo(
     () => ({
       responsive: true,

@@ -36,14 +36,11 @@ export function formatChartLabel(date) {
 export function groupTransactionsByDate(transactions) {
   return transactions.reduce((groups, transaction) => {
     const date = new Date(transaction.createdAt);
-    const today = new Date();
-    const yesterday = new Date();
-    yesterday.setDate(today.getDate() - 1);
 
     let dateKey;
-    if (date.toDateString() === today.toDateString()) {
+    if (isToday(date)) {
       dateKey = "Today";
-    } else if (date.toDateString() === yesterday.toDateString()) {
+    } else if (isYesterday(date)) {
       dateKey = "Yesterday";
     } else {
       dateKey = date.toLocaleDateString();

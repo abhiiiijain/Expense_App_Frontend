@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import { useMemo } from "react";
 import { Doughnut } from "react-chartjs-2";
 import "../config/chartSetup";
 import {

@@ -1,10 +1,9 @@
-import React, { useEffect } from "react";
+import { useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
-  useNavigate,
 } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -13,6 +12,7 @@ import { setOnUnauthorized } from "./auth/authService";
 import Login from "./auth/Login";
 import Register from "./auth/Register";
 import App from "./App";
+import { APP_NAME } from "./constants/app";
 
 function LoadingScreen() {
   return (
@@ -21,7 +21,7 @@ function LoadingScreen() {
         <div className="relative">
           <div className="h-14 w-14 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-sm font-extrabold tracking-wide text-blue-700">Budgett</span>
+            <span className="text-sm font-extrabold tracking-wide text-blue-700">{APP_NAME}</span>
           </div>
         </div>
         <div className="text-gray-800 font-semibold">Getting things ready...</div>
@@ -32,14 +32,10 @@ function LoadingScreen() {
 
 function AuthRoutes() {
   const { user, loading, logout } = useAuth();
-  const navigate = useNavigate();
 
   useEffect(() => {
-    setOnUnauthorized(() => {
-      logout();
-      navigate("/login", { replace: true });
-    });
-  }, [logout, navigate]);
+    setOnUnauthorized(logout);
+  }, [logout]);
 
   if (loading) {
     return <LoadingScreen />;

@@ -23,7 +23,6 @@ apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error?.response?.status === 401) {
-      clearAuth();
       if (onUnauthorized) {
         onUnauthorized();
       }
@@ -43,7 +42,7 @@ export function getStoredAuth() {
   }
 }
 
-export function saveAuth(token, user) {
+function saveAuth(token, user) {
   localStorage.setItem("token", token);
   localStorage.setItem("user", JSON.stringify(user));
 }

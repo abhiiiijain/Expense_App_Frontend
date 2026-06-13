@@ -1,12 +1,12 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { login } from "./authService";
 import { useAuth } from "./AuthContext";
 import { toast } from "react-toastify";
 import PasswordInput from "../components/PasswordInput";
+import { APP_NAME } from "../constants/app";
 
 function Login() {
-  const navigate = useNavigate();
   const { setUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +18,6 @@ function Login() {
       setLoading(true);
       const loggedInUser = await login(email, password);
       setUser(loggedInUser);
-      navigate("/app", { replace: true });
       toast.success("User logged in Successfully", {
         position: "top-center",
       });
@@ -37,6 +36,7 @@ function Login() {
         <div className="w-full max-w-md">
           <div className="bg-white/80 backdrop-blur-md shadow-xl rounded-2xl p-8 ring-1 ring-gray-100">
             <div className="mb-6 text-center">
+              <p className="text-lg font-extrabold tracking-tight text-blue-700 mb-2">{APP_NAME}</p>
               <h3 className="text-2xl font-extrabold tracking-tight text-gray-900">Welcome back</h3>
               <p className="text-sm text-gray-500 mt-1">Sign in to continue to your dashboard</p>
             </div>
@@ -86,9 +86,9 @@ function Login() {
 
             <p className="text-center text-sm text-gray-500 mt-4">
               New user?{" "}
-              <a href="/register" className="text-blue-600 font-semibold hover:underline">
+              <Link to="/register" className="text-blue-600 font-semibold hover:underline">
                 Create an account
-              </a>
+              </Link>
             </p>
           </div>
         </div>

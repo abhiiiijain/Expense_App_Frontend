@@ -1,21 +1,20 @@
-export const EXPENSE_CATEGORY_NAMES = [
-  "Essential Expenses",
-  "Non-Essential Expenses",
-  "Savings and Investments",
-  "Miscellaneous",
+export const EXPENSE_CATEGORIES = [
+  { name: "Essential Expenses", color: "#3B82F6", hoverColor: "#2563EB" },
+  { name: "Non-Essential Expenses", color: "#F59E0B", hoverColor: "#D97706" },
+  { name: "Savings and Investments", color: "#10B981", hoverColor: "#059669" },
+  { name: "Miscellaneous", color: "#9CA3AF", hoverColor: "#6B7280" },
 ];
 
-export const EXPENSE_CATEGORIES = [
-  { name: "Essential Expenses", color: "#36A2EB" },
-  { name: "Non-Essential Expenses", color: "#FFCE56" },
-  { name: "Savings and Investments", color: "#4BC0C0" },
-  { name: "Miscellaneous", color: "#C0C0C0" },
-];
+export const EXPENSE_CATEGORY_NAMES = EXPENSE_CATEGORIES.map((category) => category.name);
 
 export const EXPENSE_CHART_COLORS = {
-  background: ["#3B82F6", "#F59E0B", "#10B981", "#9CA3AF"],
-  hover: ["#2563EB", "#D97706", "#059669", "#6B7280"],
+  background: EXPENSE_CATEGORIES.map((category) => category.color),
+  hover: EXPENSE_CATEGORIES.map((category) => category.hoverColor),
 };
+
+export function getCategoryColor(category) {
+  return EXPENSE_CATEGORIES.find((item) => item.name === category)?.color ?? "#9CA3AF";
+}
 
 export const EXPENSE_SUBCATEGORIES = {
   "Essential Expenses": [
@@ -86,16 +85,3 @@ export const SUBCATEGORY_ICONS = {
   "Tax Refund": "🔁",
   Other: "🔖",
 };
-
-export function getCategoryBarColor(category) {
-  switch (category) {
-    case "Essential Expenses":
-      return "#3B82F6";
-    case "Non-Essential Expenses":
-      return "#F59E0B";
-    case "Savings and Investments":
-      return "#10B981";
-    default:
-      return "#9CA3AF";
-  }
-}

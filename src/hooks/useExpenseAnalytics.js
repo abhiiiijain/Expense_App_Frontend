@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import {
   EXPENSE_CATEGORY_NAMES,
-  getCategoryBarColor,
+  getCategoryColor,
 } from "../constants/categories";
 import {
   formatChartLabel,
@@ -14,13 +14,6 @@ export function useCurrentMonthExpenses(expenses) {
   return useMemo(
     () => expenses.filter((expense) => isInCurrentMonth(expense.createdAt)),
     [expenses]
-  );
-}
-
-export function useCurrentMonthIncomes(incomes) {
-  return useMemo(
-    () => incomes.filter((income) => isInCurrentMonth(income.createdAt)),
-    [incomes]
   );
 }
 
@@ -56,17 +49,11 @@ export function useCategorySums(monthlyExpenses) {
   }, [monthlyExpenses]);
 }
 
-export function useWeeklyExpenses(expenses) {
+export function useWeeklyBarChartData(expenses) {
   return useMemo(() => {
     const weekStart = subDays(new Date(), 6);
     weekStart.setHours(0, 0, 0, 0);
 
-    return expenses.filter((expense) => new Date(expense.createdAt) >= weekStart);
-  }, [expenses]);
-}
-
-export function useWeeklyBarChartData(expenses) {
-  return useMemo(() => {
     const last7Dates = Array.from({ length: 7 }, (_, index) =>
       subDays(new Date(), 6 - index)
     );
@@ -77,8 +64,16 @@ export function useWeeklyBarChartData(expenses) {
       EXPENSE_CATEGORY_NAMES.map((name) => [name, Array(7).fill(0)])
     );
 
+    let hasData = false;
+
     expenses.forEach((expense) => {
-      const key = formatDateKey(new Date(expense.createdAt));
+      const expenseDate = new Date(expense.createdAt);
+      if (expenseDate < weekStart) {
+        return;
+      }
+
+      hasData = true;
+      const key = formatDateKey(expenseDate);
       const dayIndex = dateKeys.indexOf(key);
       if (dayIndex !== -1 && sums[expense.category]) {
         sums[expense.category][dayIndex] += expense.amount;
@@ -88,11 +83,11 @@ export function useWeeklyBarChartData(expenses) {
     const datasets = Object.keys(sums).map((category) => ({
       label: category,
       data: sums[category].map((value) => (value === 0 ? null : value)),
-      backgroundColor: getCategoryBarColor(category),
+      backgroundColor: getCategoryColor(category),
       stack: "Stack 0",
       borderRadius: 6,
     }));
 
-    return { labels, datasets };
+    return { labels, datasets, hasData };
   }, [expenses]);
 }

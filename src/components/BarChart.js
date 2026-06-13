@@ -1,4 +1,3 @@
-import React from "react";
 import VerticalChart from "./VerticalChart";
 import CardHeader from "./CardHeader";
 

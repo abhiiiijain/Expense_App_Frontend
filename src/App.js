@@ -1,5 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
 import Transactions from "./components/Transactions";
 import SummaryCards from "./components/SummaryCards";
 import AddExpenseModal from "./components/AddExpenseModal";
@@ -7,9 +6,10 @@ import PieChart from "./components/PieChart";
 import BarChart from "./components/BarChart";
 import { apiClient, fetchTransactions } from "./auth/authService";
 import { useAuth } from "./auth/AuthContext";
+import { APP_NAME } from "./constants/app";
+import { toast } from "react-toastify";
 
 function App() {
-  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [expenses, setExpenses] = useState([]);
@@ -24,14 +24,15 @@ function App() {
 
   useEffect(() => {
     loadTransactions()
-      .catch(() => {})
+      .catch(() => {
+        toast.error("Could not load transactions");
+      })
       .finally(() => setLoading(false));
   }, [loadTransactions]);
 
   const handleLogout = () => {
     setShowMenu(false);
     logout();
-    navigate("/login", { replace: true });
   };
 
   const addTransaction = async (transaction) => {
@@ -45,19 +46,16 @@ function App() {
     }
   };
 
-  const deleteExpense = async (id) => {
-    await apiClient.delete(`delete-expense/${id}`);
-    setExpenses((prev) => prev.filter((expense) => expense._id !== id));
-  };
+  const deleteTransaction = async (type, id) => {
+    const endpoint = type === "income" ? `delete-income/${id}` : `delete-expense/${id}`;
+    await apiClient.delete(endpoint);
 
-  const deleteIncome = async (id) => {
-    await apiClient.delete(`delete-income/${id}`);
-    setIncomes((prev) => prev.filter((income) => income._id !== id));
+    if (type === "income") {
+      setIncomes((prev) => prev.filter((income) => income._id !== id));
+    } else {
+      setExpenses((prev) => prev.filter((expense) => expense._id !== id));
+    }
   };
-
-  if (!user) {
-    return null;
-  }
 
   const displayName =
     ((user.firstName || "") + " " + (user.lastName || "")).trim() || user.email;
@@ -66,7 +64,7 @@ function App() {
     <div className="min-h-screen bg-gradient-to-b from-slate-100 to-gray-100">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200/80">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
-          <img src="./logo.png" alt="Budgett" className="h-9 w-auto" />
+          <span className="text-xl font-extrabold tracking-tight text-blue-700">{APP_NAME}</span>
 
           <div className="hidden sm:block text-center flex-1 min-w-0">
             <div className="text-xs text-gray-500">Welcome back</div>
@@ -151,8 +149,8 @@ function App() {
             <Transactions
               expenses={expenses}
               incomes={incomes}
-              onDeleteExpense={deleteExpense}
-              onDeleteIncome={deleteIncome}
+              onDeleteExpense={(id) => deleteTransaction("expense", id)}
+              onDeleteIncome={(id) => deleteTransaction("income", id)}
             />
           </div>
         </div>

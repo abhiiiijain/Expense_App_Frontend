@@ -1,12 +1,12 @@
-import React, { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import { registerUser } from "./authService";
 import { useAuth } from "./AuthContext";
 import { toast } from "react-toastify";
 import PasswordInput from "../components/PasswordInput";
+import { APP_NAME } from "../constants/app";
 
 function Register() {
-  const navigate = useNavigate();
   const { setUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,7 +20,6 @@ function Register() {
       setLoading(true);
       const user = await registerUser({ firstName: fname, lastName: lname, email, password });
       setUser(user);
-      navigate("/app", { replace: true });
       toast.success("User Registered Successfully!!", {
         position: "top-center",
       });
@@ -39,8 +38,9 @@ function Register() {
         <div className="w-full max-w-md">
           <div className="bg-white/80 backdrop-blur-md shadow-xl rounded-2xl p-8 ring-1 ring-gray-100">
             <div className="mb-6 text-center">
+              <p className="text-lg font-extrabold tracking-tight text-blue-700 mb-2">{APP_NAME}</p>
               <h3 className="text-2xl font-extrabold tracking-tight text-gray-900">Create your account</h3>
-              <p className="text-sm text-gray-500 mt-1">Start tracking your expenses in minutes</p>
+              <p className="text-sm text-gray-500 mt-1">Start tracking your money with {APP_NAME}</p>
             </div>
 
             <form onSubmit={handleRegister} className="space-y-4">
@@ -50,6 +50,7 @@ function Register() {
                   type="text"
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   placeholder="Abhinandan"
+                  value={fname}
                   onChange={(e) => setFname(e.target.value)}
                   required
                 />
@@ -61,6 +62,7 @@ function Register() {
                   type="text"
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   placeholder="Jain"
+                  value={lname}
                   onChange={(e) => setLname(e.target.value)}
                 />
               </div>
@@ -71,6 +73,7 @@ function Register() {
                   type="email"
                   className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
                   placeholder="abhinandanbansal123@gmail.com"
+                  value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
@@ -102,9 +105,9 @@ function Register() {
 
             <p className="text-center text-sm text-gray-500 mt-4">
               Already registered?{" "}
-              <a href="/login" className="text-blue-600 font-semibold hover:underline">
+              <Link to="/login" className="text-blue-600 font-semibold hover:underline">
                 Sign in
-              </a>
+              </Link>
             </p>
           </div>
         </div>

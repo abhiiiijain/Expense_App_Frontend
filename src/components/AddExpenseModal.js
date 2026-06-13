@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   EXPENSE_CATEGORY_NAMES,
   EXPENSE_SUBCATEGORIES,
