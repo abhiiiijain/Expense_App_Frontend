@@ -1,10 +1,36 @@
 import axios from "axios";
+import { getApiBaseUrl } from "../config/api";
 
-// export const API_BASE_URL =
-//   process.env.REACT_APP_API_BASE_URL ||
-//   "http://localhost:5000/api/v1/";
+const apiClient = axios.create({ baseURL: getApiBaseUrl() });
 
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || "https://expense-app-backend-avc9.onrender.com/api/v1/";
+export { apiClient };
+
+let onUnauthorized = null;
+
+export function setOnUnauthorized(callback) {
+  onUnauthorized = callback;
+}
+
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401) {
+      clearAuth();
+      if (onUnauthorized) {
+        onUnauthorized();
+      }
+    }
+    return Promise.reject(error);
+  }
+);
 
 export function getStoredAuth() {
   try {
@@ -27,33 +53,27 @@ export function clearAuth() {
   localStorage.removeItem("user");
 }
 
-export function authHeader() {
-  const { token } = getStoredAuth();
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
 export async function login(email, password) {
-  const { data } = await axios.post(`${API_BASE_URL}auth/login`, { email, password });
+  const { data } = await apiClient.post("auth/login", { email, password });
   saveAuth(data.token, data.user);
   return data.user;
 }
 
 export async function registerUser({ firstName, lastName, email, password }) {
-  const { data } = await axios.post(`${API_BASE_URL}auth/register`, {
+  const { data } = await apiClient.post("auth/register", {
     firstName,
     lastName,
     email,
     password,
   });
-  // Optionally log user in immediately after registration:
   saveAuth(data.token, data.user);
   return data.user;
 }
 
 export async function fetchMe() {
-  const headers = authHeader();
-  if (!headers.Authorization) return null;
-  const { data } = await axios.get(`${API_BASE_URL}auth/me`, { headers });
+  const { token } = getStoredAuth();
+  if (!token) return null;
+  const { data } = await apiClient.get("auth/me");
   return data;
 }
 
@@ -61,3 +81,7 @@ export function logout() {
   clearAuth();
 }
 
+export async function fetchTransactions() {
+  const { data } = await apiClient.get("transactions");
+  return data;
+}

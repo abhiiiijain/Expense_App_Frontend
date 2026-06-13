@@ -1,135 +1,190 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
+import {
+  EXPENSE_FILTER_CATEGORIES,
+  EXPENSE_SUBCATEGORIES,
+  INCOME_FILTER_CATEGORIES,
+  INCOME_SUBCATEGORIES,
+} from "../constants/categories";
+import { groupTransactionsByDate } from "../utils/dateHelpers";
+import { formatCurrency } from "../utils/formatCurrency";
+import EmptyState from "./EmptyState";
 
-const mainCategories = [
-  "All",
-  "Essential Expenses",
-  "Non-Essential Expenses",
-  "Savings and Investments",
-  "Miscellaneous",
-];
+function filterByCategory(transactions, mainCategory, subcategory, subcategoryMap) {
+  if (mainCategory === "All") {
+    return transactions;
+  }
+  if (subcategory === "All") {
+    return transactions.filter((transaction) =>
+      subcategoryMap[mainCategory]?.includes(transaction.subcategory)
+    );
+  }
+  return transactions.filter((transaction) => transaction.subcategory === subcategory);
+}
 
-const subcategories = {
-  "Essential Expenses": [
-    "Housing",
-    "Transportation",
-    "Food",
-    "Utilities and Services",
-    "Healthcare",
-    "Insurance",
-    "Debt Repayments",
-  ],
-  "Non-Essential Expenses": [
-    "Entertainment and Leisure",
-    "Personal Care",
-    "Clothing and Accessories",
-  ],
-  "Savings and Investments": ["Savings", "Investments"],
-  Miscellaneous: [
-    "Education and Self-Improvement",
-    "Gifts and Donations",
-    "Miscellaneous",
-  ],
-};
+function FilterChips({ options, selected, onSelect, activeClass, inactiveClass }) {
+  return (
+    <div className="mb-4 flex flex-wrap gap-2">
+      {options.map((option) => {
+        const active = selected === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            className={`${active ? activeClass : inactiveClass} text-sm px-3 py-1.5 rounded-full transition border`}
+            onClick={() => onSelect(option)}
+          >
+            {option}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
 
-const incomeMainCategories = [
-  "All",
-  "Primary Income",
-  "Secondary Income",
-  "Investments",
-  "Gifts & Refunds",
-  "Other Income",
-];
+function TransactionRow({ transaction, type, onDelete }) {
+  const isIncome = type === "income";
+  const subtitle =
+    transaction.title === transaction.subcategory
+      ? transaction.category
+      : transaction.subcategory;
+  const showSubtitle = subtitle && subtitle !== transaction.title;
 
-const incomeSubcategories = {
-  "Primary Income": ["Salary", "Bonus"],
-  "Secondary Income": ["Freelance", "Side Hustle"],
-  Investments: ["Dividends", "Interest"],
-  "Gifts & Refunds": ["Gift", "Tax Refund"],
-  "Other Income": ["Other"],
-};
+  return (
+    <div className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition border border-gray-100 rounded-xl p-3 group">
+      <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 text-xl shrink-0">
+        {transaction.icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="font-semibold text-gray-900 truncate">{transaction.title}</div>
+        {showSubtitle && (
+          <div className="text-gray-500 text-xs truncate">{subtitle}</div>
+        )}
+      </div>
+      <div
+        className={`font-bold shrink-0 tabular-nums ${
+          isIncome ? "text-green-700" : "text-red-700"
+        }`}
+      >
+        {formatCurrency(transaction.amount, { signed: true })}
+      </div>
+      <button
+        type="button"
+        title={`Delete ${type}`}
+        aria-label={`Delete ${type}`}
+        className="shrink-0 w-8 h-8 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 sm:opacity-0 sm:group-hover:opacity-100 transition"
+        onClick={() => {
+          if (!onDelete) return;
+          if (window.confirm(`Delete this ${type}?`)) {
+            onDelete(transaction._id);
+          }
+        }}
+      >
+        ✕
+      </button>
+    </div>
+  );
+}
 
-const Transactions = ({ expenses = [], incomes = [], user, onDeleteExpense, onDeleteIncome }) => {
-  const [selectedMainCategory, setSelectedMainCategory] = useState("All");
-  const [selectedSubcategory, setSelectedSubcategory] = useState("All");
-  const [selectedIncomeMainCategory, setSelectedIncomeMainCategory] =
-    useState("All");
-  const [selectedIncomeSubcategory, setSelectedIncomeSubcategory] =
-    useState("All");
+function TransactionList({ grouped, type, onDelete, emptyIcon, emptyTitle, emptyDescription }) {
+  const dates = Object.keys(grouped);
 
-  if (!user) {
-    return null;
+  if (dates.length === 0) {
+    return (
+      <EmptyState
+        icon={emptyIcon}
+        title={emptyTitle}
+        description={emptyDescription}
+        compact
+      />
+    );
   }
 
-  // Expenses filtering (based on expense categories)
-  const filteredExpenses = expenses.filter((transaction) => {
-    if (transaction.email !== user.email) {
-      return false;
-    }
-    if (selectedMainCategory === "All") {
-      return true;
-    }
-    if (selectedSubcategory === "All") {
-      return subcategories[selectedMainCategory]?.includes(
-        transaction.subcategory
-      );
-    }
-    return transaction.subcategory === selectedSubcategory;
-  });
+  return (
+    <div className="space-y-5">
+      {dates.map((date) => (
+        <div key={date}>
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-2">
+            {date}
+          </h4>
+          <div className="space-y-2">
+            {grouped[date].map((transaction) => (
+              <TransactionRow
+                key={transaction._id}
+                transaction={transaction}
+                type={type}
+                onDelete={onDelete}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
-  // Incomes filtering (with income categories)
-  const filteredIncomes = incomes.filter((transaction) => {
-    if (transaction.email !== user.email) return false;
-    if (selectedIncomeMainCategory === "All") return true;
-    if (selectedIncomeSubcategory === "All") {
-      return incomeSubcategories[selectedIncomeMainCategory]?.includes(
-        transaction.subcategory
-      );
-    }
-    return transaction.subcategory === selectedIncomeSubcategory;
-  });
+const Transactions = ({ expenses = [], incomes = [], onDeleteExpense, onDeleteIncome }) => {
+  const [selectedMainCategory, setSelectedMainCategory] = useState("All");
+  const [selectedSubcategory, setSelectedSubcategory] = useState("All");
+  const [selectedIncomeMainCategory, setSelectedIncomeMainCategory] = useState("All");
+  const [selectedIncomeSubcategory, setSelectedIncomeSubcategory] = useState("All");
 
-  const groupTransactionsByDate = (transactions) => {
-    return transactions.reduce((groups, transaction) => {
-      const date = new Date(transaction.createdAt);
-      const today = new Date();
-      const yesterday = new Date();
-      yesterday.setDate(today.getDate() - 1);
+  const filteredExpenses = useMemo(
+    () =>
+      filterByCategory(
+        expenses,
+        selectedMainCategory,
+        selectedSubcategory,
+        EXPENSE_SUBCATEGORIES
+      ),
+    [expenses, selectedMainCategory, selectedSubcategory]
+  );
 
-      let dateKey;
-      if (date.toDateString() === today.toDateString()) {
-        dateKey = "Today";
-      } else if (date.toDateString() === yesterday.toDateString()) {
-        dateKey = "Yesterday";
-      } else {
-        dateKey = date.toLocaleDateString();
-      }
+  const filteredIncomes = useMemo(
+    () =>
+      filterByCategory(
+        incomes,
+        selectedIncomeMainCategory,
+        selectedIncomeSubcategory,
+        INCOME_SUBCATEGORIES
+      ),
+    [incomes, selectedIncomeMainCategory, selectedIncomeSubcategory]
+  );
 
-      if (!groups[dateKey]) {
-        groups[dateKey] = [];
-      }
-      groups[dateKey].push(transaction);
-      return groups;
-    }, {});
-  };
+  const groupedExpenses = useMemo(
+    () => groupTransactionsByDate(filteredExpenses),
+    [filteredExpenses]
+  );
 
-  const groupedExpenses = groupTransactionsByDate(filteredExpenses);
-  const groupedIncomes = groupTransactionsByDate(filteredIncomes);
+  const groupedIncomes = useMemo(
+    () => groupTransactionsByDate(filteredIncomes),
+    [filteredIncomes]
+  );
+
+  const expenseSubOptions = ["All", ...(EXPENSE_SUBCATEGORIES[selectedMainCategory] || [])];
+  const incomeSubOptions = [
+    "All",
+    ...(INCOME_SUBCATEGORIES[selectedIncomeMainCategory] || []),
+  ];
 
   return (
     <>
-      {/* Expenses Card */}
-      <div className="bg-white shadow-lg rounded-2xl p-6 w-full ring-1 ring-gray-100 mb-6 overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 w-full">
-          <h3 className="text-lg font-extrabold text-gray-900">Expenses</h3>
+      <div className="bg-white shadow-lg rounded-2xl p-6 w-full ring-1 ring-gray-100 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-lg font-extrabold text-gray-900">Expenses</h3>
+            <span className="text-xs font-semibold bg-red-100 text-red-700 px-2.5 py-0.5 rounded-full min-w-[1.5rem] text-center">
+              {filteredExpenses.length}
+            </span>
+          </div>
           <select
             value={selectedMainCategory}
             onChange={(e) => {
               setSelectedMainCategory(e.target.value);
               setSelectedSubcategory("All");
             }}
-            className="border border-blue-200 text-blue-700 bg-white rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 w-full sm:w-auto"
+            className="border border-red-200 text-red-700 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-auto"
           >
-            {mainCategories.map((category) => (
+            {EXPENSE_FILTER_CATEGORIES.map((category) => (
               <option key={category} value={category}>
                 {category}
               </option>
@@ -138,97 +193,46 @@ const Transactions = ({ expenses = [], incomes = [], user, onDeleteExpense, onDe
         </div>
 
         {selectedMainCategory !== "All" && (
-          <div className="mb-4 flex flex-wrap gap-2">
-            <button
-              className={`${selectedSubcategory === "All"
-                ? "bg-blue-100 text-blue-800 border-blue-200"
-                : "bg-white text-blue-600 border-blue-200 hover:bg-blue-50"
-                } border text-sm px-3 py-1.5 rounded-full transition`}
-              onClick={() => setSelectedSubcategory("All")}
-            >
-              All
-            </button>
-
-            {subcategories[selectedMainCategory]?.map((subcategory) => {
-              const active = selectedSubcategory === subcategory;
-              return (
-                <button
-                  key={subcategory}
-                  className={`${active
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-blue-600 border border-blue-200 hover:bg-blue-50"
-                    } text-sm px-3 py-1.5 rounded-full transition`}
-                  onClick={() => setSelectedSubcategory(subcategory)}
-                >
-                  {subcategory}
-                </button>
-              );
-            })}
-          </div>
+          <FilterChips
+            options={expenseSubOptions}
+            selected={selectedSubcategory}
+            onSelect={setSelectedSubcategory}
+            activeClass="bg-red-600 text-white border-red-600"
+            inactiveClass="bg-white text-red-600 border-red-200 hover:bg-red-50"
+          />
         )}
 
-        {/* Expenses list */}
-        <div className="space-y-5">
-          {Object.keys(groupedExpenses).map((date) => (
-            <div key={date}>
-              <h4 className="text-xs uppercase tracking-wider text-gray-400 mb-2">
-                {date}
-              </h4>
-              <div className="space-y-2">
-                {groupedExpenses[date].map((transaction, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition border border-gray-100 rounded-xl p-3"
-                  >
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 text-xl">
-                      {transaction.icon}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-gray-900 truncate">
-                        {transaction.title}
-                      </div>
-                      <div className="text-gray-500 text-xs">
-                        {transaction.subcategory}
-                      </div>
-                    </div>
-                    <div className="ml-auto font-bold text-gray-900">
-                      {`-₹${transaction.amount.toFixed(2)}`}
-                    </div>
-                    <button
-                      type="button"
-                      title="Delete expense"
-                      aria-label="Delete expense"
-                      className="ml-3 text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        if (!onDeleteExpense) return;
-                        if (window.confirm("Are you sure you want to delete this expense?")) {
-                          onDeleteExpense(transaction._id);
-                        }
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <TransactionList
+          grouped={groupedExpenses}
+          type="expense"
+          onDelete={onDeleteExpense}
+          emptyIcon="🧾"
+          emptyTitle="No expenses found"
+          emptyDescription={
+            expenses.length === 0
+              ? "Tap + to record your first expense"
+              : "Try changing the category filter"
+          }
+        />
       </div>
 
-      {/* Incomes Card */}
       <div className="bg-white shadow-lg rounded-2xl p-6 w-full ring-1 ring-gray-100">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 w-full">
-          <h3 className="text-lg font-extrabold text-gray-900">Incomes</h3>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <div className="flex items-center gap-2.5">
+            <h3 className="text-lg font-extrabold text-gray-900">Incomes</h3>
+            <span className="text-xs font-semibold bg-green-100 text-green-700 px-2.5 py-0.5 rounded-full min-w-[1.5rem] text-center">
+              {filteredIncomes.length}
+            </span>
+          </div>
           <select
             value={selectedIncomeMainCategory}
             onChange={(e) => {
               setSelectedIncomeMainCategory(e.target.value);
               setSelectedIncomeSubcategory("All");
             }}
-            className="border border-green-200 text-green-700 bg-white rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-green-500 w-full sm:w-auto"
+            className="border border-green-200 text-green-700 bg-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 w-full sm:w-auto"
           >
-            {incomeMainCategories.map((category) => (
+            {INCOME_FILTER_CATEGORIES.map((category) => (
               <option key={category} value={category}>
                 {category}
               </option>
@@ -237,84 +241,27 @@ const Transactions = ({ expenses = [], incomes = [], user, onDeleteExpense, onDe
         </div>
 
         {selectedIncomeMainCategory !== "All" && (
-          <div className="mb-4 flex flex-wrap gap-2">
-            <button
-              className={`${selectedIncomeSubcategory === "All"
-                  ? "bg-green-100 text-green-800 border-green-200"
-                  : "bg-white text-green-600 border-green-200 hover:bg-green-50"
-                } border text-sm px-3 py-1.5 rounded-full transition`}
-              onClick={() => setSelectedIncomeSubcategory("All")}
-            >
-              All
-            </button>
-
-            {incomeSubcategories[selectedIncomeMainCategory]?.map(
-              (subcategory) => {
-                const active = selectedIncomeSubcategory === subcategory;
-                return (
-                  <button
-                    key={subcategory}
-                    className={`${active
-                        ? "bg-green-600 text-white"
-                        : "bg-white text-green-600 border border-green-200 hover:bg-green-50"
-                      } text-sm px-3 py-1.5 rounded-full transition`}
-                    onClick={() => setSelectedIncomeSubcategory(subcategory)}
-                  >
-                    {subcategory}
-                  </button>
-                );
-              }
-            )}
-          </div>
+          <FilterChips
+            options={incomeSubOptions}
+            selected={selectedIncomeSubcategory}
+            onSelect={setSelectedIncomeSubcategory}
+            activeClass="bg-green-600 text-white border-green-600"
+            inactiveClass="bg-white text-green-600 border-green-200 hover:bg-green-50"
+          />
         )}
 
-        {/* Incomes list */}
-        <div className="space-y-5">
-          {Object.keys(groupedIncomes).map((date) => (
-            <div key={date}>
-              <h4 className="text-xs uppercase tracking-wider text-gray-400 mb-2">
-                {date}
-              </h4>
-              <div className="space-y-2">
-                {groupedIncomes[date].map((transaction, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-3 bg-gray-50 hover:bg-gray-100 transition border border-gray-100 rounded-xl p-3"
-                  >
-                    <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white border border-gray-200 text-xl">
-                      {transaction.icon}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-gray-900 truncate">
-                        {transaction.title}
-                      </div>
-                      <div className="text-gray-500 text-xs">
-                        {transaction.subcategory}
-                      </div>
-                    </div>
-                    <div className="ml-auto font-bold text-green-700">
-                      {`+₹${transaction.amount.toFixed(2)}`}
-                    </div>
-                    <button
-                      type="button"
-                      title="Delete income"
-                      aria-label="Delete income"
-                      className="ml-3 text-red-600 hover:text-red-700"
-                      onClick={() => {
-                        if (!onDeleteIncome) return;
-                        if (window.confirm("Are you sure you want to delete this income?")) {
-                          onDeleteIncome(transaction._id);
-                        }
-                      }}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <TransactionList
+          grouped={groupedIncomes}
+          type="income"
+          onDelete={onDeleteIncome}
+          emptyIcon="💰"
+          emptyTitle="No income found"
+          emptyDescription={
+            incomes.length === 0
+              ? "Tap + to record your first income"
+              : "Try changing the category filter"
+          }
+        />
       </div>
     </>
   );

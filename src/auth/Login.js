@@ -1,27 +1,28 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { login } from "./authService";
+import { useAuth } from "./AuthContext";
 import { toast } from "react-toastify";
-// import SignInWithGoogle from "./SignInWithGoogle";
+import PasswordInput from "../components/PasswordInput";
 
 function Login() {
+  const navigate = useNavigate();
+  const { setUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       setLoading(true);
-      await login(email, password);
-      console.log("User logged in Successfully");
-      window.location.href = "/app";
+      const loggedInUser = await login(email, password);
+      setUser(loggedInUser);
+      navigate("/app", { replace: true });
       toast.success("User logged in Successfully", {
         position: "top-center",
       });
     } catch (error) {
-      console.log(error?.response?.data?.message || error.message);
-
       toast.error(error?.response?.data?.message || error.message, {
         position: "bottom-center",
       });
@@ -61,40 +62,13 @@ function Login() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                      <path fillRule="evenodd" d="M12 1.5a5.25 5.25 0 00-5.25 5.25v2.25H6A2.25 2.25 0 003.75 11.25v7.5A2.25 2.25 0 006 21h12a2.25 2.25 0 002.25-2.25v-7.5A2.25 2.25 0 0018 9h-.75V6.75A5.25 5.25 0 0012 1.5zm-3.75 5.25A3.75 3.75 0 0112 3a3.75 3.75 0 013.75 3.75V9h-7.5V6.75z" clipRule="evenodd" />
-                    </svg>
-                  </span>
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    className="w-full pl-10 pr-10 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
-                    placeholder="Enter your password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((s) => !s)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
-                    aria-label="Toggle password visibility"
-                  >
-                    {showPassword ? (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M12 5c-7 0-10 7-10 7s3 7 10 7 10-7 10-7-3-7-10-7zm0 12a5 5 0 110-10 5 5 0 010 10z" />
-                      </svg>
-                    ) : (
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="currentColor">
-                        <path d="M3.98 8.223A10.477 10.477 0 002 12s3 7 10 7a10.45 10.45 0 005.67-1.67l1.65 1.65a1 1 0 001.41-1.41l-16-16a1 1 0 10-1.41 1.41l1.66 1.66zM12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.27-.36 1.84l-6.48-6.48c.57-.23 1.19-.36 1.84-.36z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
+              <PasswordInput
+                id="login-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+              />
 
               <button
                 type="submit"

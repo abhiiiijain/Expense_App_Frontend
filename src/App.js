@@ -1,184 +1,165 @@
-import React, { useEffect, useState } from "react";
-import PieChart from "./components/PieChart";
+import React, { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Transactions from "./components/Transactions";
-import BarChart from "./components/BarChart";
+import SummaryCards from "./components/SummaryCards";
 import AddExpenseModal from "./components/AddExpenseModal";
-import axios from "axios";
-import { getStoredAuth, logout, API_BASE_URL, authHeader, clearAuth } from "./auth/authService";
-// import { doc, getDoc } from "firebase/firestore";
-
-// export const BASE_URL = "http://localhost:5000/api/v1/";
-// Using API_BASE_URL from authService
+import PieChart from "./components/PieChart";
+import BarChart from "./components/BarChart";
+import { apiClient, fetchTransactions } from "./auth/authService";
+import { useAuth } from "./auth/AuthContext";
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [showLogout, setShowLogout] = useState(false);
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+  const [showMenu, setShowMenu] = useState(false);
+  const [expenses, setExpenses] = useState([]);
+  const [incomes, setIncomes] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-
-
-  useEffect(() => {
-    const { user } = getStoredAuth();
-    setUser(user);
+  const loadTransactions = useCallback(async () => {
+    const data = await fetchTransactions();
+    setExpenses(data.expenses);
+    setIncomes(data.incomes);
   }, []);
 
-  console.log("user", user);
+  useEffect(() => {
+    loadTransactions()
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [loadTransactions]);
 
-  async function handleLogout() {
+  const handleLogout = () => {
+    setShowMenu(false);
     logout();
-    window.location.href = "/login";
-    console.log("User logged out successfully!");
-  }
-
-  const [error, setError] = useState(null);
-  let [expenses, setExpenses] = useState([]);
-  let [incomes, setIncomes] = useState([]);
-
-  const getExpenses = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}get-expenses`, {
-        headers: authHeader(),
-      });
-      setExpenses(response.data);
-      console.log(response.data);
-    } catch (err) {
-      if (err?.response?.status === 401) {
-        clearAuth();
-        window.location.href = "/login";
-      }
-    }
+    navigate("/login", { replace: true });
   };
 
-  const getIncomes = async () => {
-    try {
-      const response = await axios.get(`${API_BASE_URL}get-incomes`, {
-        headers: authHeader(),
-      });
-      setIncomes(response.data);
-    } catch (err) {
-      if (err?.response?.status === 401) {
-        clearAuth();
-        window.location.href = "/login";
-      }
-    }
-  };
+  const addTransaction = async (transaction) => {
+    const endpoint = transaction.type === "income" ? "add-income" : "add-expense";
+    const { data } = await apiClient.post(endpoint, transaction);
 
-  const addExpense = async (expense) => {
-    try {
-      const endpoint = expense.type === "income" ? "add-income" : "add-expense";
-      await axios.post(`${API_BASE_URL}${endpoint}`, expense, {
-        headers: authHeader(),
-      });
-      getExpenses();
-      getIncomes();
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to add expense");
-      if (err?.response?.status === 401) {
-        clearAuth();
-        window.location.href = "/login";
-      }
+    if (transaction.type === "income") {
+      setIncomes((prev) => [data, ...prev]);
+    } else {
+      setExpenses((prev) => [data, ...prev]);
     }
   };
 
   const deleteExpense = async (id) => {
-    try {
-      await axios.delete(`${API_BASE_URL}delete-expense/${id}`, {
-        headers: authHeader(),
-      });
-      setExpenses((prev) => prev.filter((e) => e._id !== id));
-    } catch (err) {
-      if (err?.response?.status === 401) {
-        clearAuth();
-        window.location.href = "/login";
-      }
-    }
+    await apiClient.delete(`delete-expense/${id}`);
+    setExpenses((prev) => prev.filter((expense) => expense._id !== id));
   };
 
   const deleteIncome = async (id) => {
-    try {
-      await axios.delete(`${API_BASE_URL}delete-income/${id}`, {
-        headers: authHeader(),
-      });
-      setIncomes((prev) => prev.filter((i) => i._id !== id));
-    } catch (err) {
-      if (err?.response?.status === 401) {
-        clearAuth();
-        window.location.href = "/login";
-      }
-    }
+    await apiClient.delete(`delete-income/${id}`);
+    setIncomes((prev) => prev.filter((income) => income._id !== id));
   };
 
-  useEffect(() => {
-    getExpenses();
-    getIncomes();
-  }, []);
+  if (!user) {
+    return null;
+  }
+
+  const displayName =
+    ((user.firstName || "") + " " + (user.lastName || "")).trim() || user.email;
 
   return (
-    <>
-      {/* main section */}
-      <div className="bg-gray-100 relative flex flex-col items-center">
-        <header className="w-[90%] flex justify-between items-center p-5 relative">
-          <img src="./logo.png" alt="Logo" className="h-10" />
+    <div className="min-h-screen bg-gradient-to-b from-slate-100 to-gray-100">
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-gray-200/80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
+          <img src="./logo.png" alt="Budgett" className="h-9 w-auto" />
 
-          {user && (
-            <div className="absolute left-1/2 -translate-x-1/2 text-gray-900 font-extrabold text-lg truncate max-w-[60%] text-center">
-              Welcome{" "}
-              {((user.firstName || "") + " " + (user.lastName || "")).trim() || user.email}
-            </div>
-          )}
-
-          {user ? (
-            <>
-              {/* <h1>Welcome {user.firstName}</h1> */}
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  cursor: "pointer",
-                  position: "relative",
-                }}
-                onClick={() => setShowLogout(!showLogout)}>
-                <img
-                  src={user.photo || "./icon.png"}
-                  width={"40%"}
-                  style={{ borderRadius: "50%" }}
-                  alt="User icon"
-                />
-                {showLogout && (
-                  <button
-                    className="absolute top-0 left-full ml-2 px-4 py-2 bg-blue-500 text-white font-semibold rounded"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleLogout();
-                    }}>
-                    Logout
-                  </button>
-                )}
-              </div>
-            </>
-          ) : (
-            <p>Not Logged In</p>
-          )}
-        </header>
-        <main className="flex flex-col md:flex-row justify-center gap-6 md:gap-10 p-3 w-full">
-          <div className="flex flex-col gap-6 md:gap-10 w-full md:w-1/2">
-            <PieChart expensess={expenses} user={user} />
-            <BarChart expensess={expenses} user={user} />
+          <div className="hidden sm:block text-center flex-1 min-w-0">
+            <div className="text-xs text-gray-500">Welcome back</div>
+            <div className="font-bold text-gray-900 truncate">{displayName}</div>
           </div>
-          <div className="flex flex-wrap w-full md:w-1/3 mt-6 md:mt-0">
+
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowMenu((open) => !open)}
+              className="flex items-center gap-1.5 rounded-full p-0.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              aria-expanded={showMenu}
+              aria-haspopup="menu"
+              aria-label="User menu"
+            >
+              <img
+                src={user.photo || "./icon.png"}
+                alt=""
+                className="w-10 h-10 rounded-full border-2 border-white shadow-md object-cover"
+              />
+              <svg
+                className={`w-4 h-4 text-gray-500 hidden sm:block transition ${showMenu ? "rotate-180" : ""}`}
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                aria-hidden="true"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+
+            {showMenu && (
+              <>
+                <button
+                  type="button"
+                  className="fixed inset-0 z-10 cursor-default"
+                  aria-label="Close menu"
+                  onClick={() => setShowMenu(false)}
+                />
+                <div
+                  role="menu"
+                  className="absolute right-0 top-12 z-20 w-52 bg-white rounded-xl shadow-xl border border-gray-200 py-1 overflow-hidden"
+                >
+                  <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/80">
+                    <div className="text-xs text-gray-500">Signed in as</div>
+                    <div className="text-sm font-semibold text-gray-900 truncate">{displayName}</div>
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={handleLogout}
+                    className="w-full text-left px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 transition flex items-center gap-2"
+                  >
+                    <span aria-hidden="true">↪</span>
+                    Log out
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-20 bg-white rounded-2xl animate-pulse ring-1 ring-gray-100" />
+            ))}
+          </div>
+        ) : (
+          <SummaryCards expenses={expenses} incomes={incomes} />
+        )}
+
+        <div className="flex flex-col xl:flex-row gap-6">
+          <div className="flex flex-col gap-6 w-full xl:w-3/5">
+            <PieChart expenses={expenses} />
+            <BarChart expenses={expenses} />
+          </div>
+
+          <div className="w-full xl:w-2/5">
             <Transactions
               expenses={expenses}
               incomes={incomes}
-              user={user}
               onDeleteExpense={deleteExpense}
               onDeleteIncome={deleteIncome}
             />
           </div>
-          <div className="fixed bottom-6 right-6 md:bottom-10 md:right-10">
-            <AddExpenseModal AddExpense={addExpense} user={user} />
-          </div>
-        </main>
-      </div>
-    </>
+        </div>
+      </main>
+
+      <AddExpenseModal AddExpense={addTransaction} />
+    </div>
   );
 }
 

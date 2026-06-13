@@ -1,6 +1,13 @@
 import React, { useState, useEffect } from "react";
+import {
+  EXPENSE_CATEGORY_NAMES,
+  EXPENSE_SUBCATEGORIES,
+  INCOME_CATEGORY_NAMES,
+  INCOME_SUBCATEGORIES,
+  SUBCATEGORY_ICONS,
+} from "../constants/categories";
 
-const AddExpenseModal = ({ AddExpense, user }) => {
+const AddExpenseModal = ({ AddExpense }) => {
   const [showModal, setShowModal] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
@@ -10,88 +17,18 @@ const AddExpenseModal = ({ AddExpense, user }) => {
     type: "expense",
   });
 
-  const expenseSubcategories = {
-    "Essential Expenses": [
-      "Housing",
-      "Transportation",
-      "Food",
-      "Utilities and Services",
-      "Healthcare",
-      "Insurance",
-      "Debt Repayments",
-    ],
-    "Non-Essential Expenses": [
-      "Entertainment and Leisure",
-      "Personal Care",
-      "Clothing and Accessories",
-    ],
-    "Savings and Investments": ["Savings", "Investments"],
-    Miscellaneous: [
-      "Education and Self-Improvement",
-      "Gifts and Donations",
-      "Miscellaneous",
-    ],
-  };
-
-  const incomeCategories = [
-    "Primary Income",
-    "Secondary Income",
-    "Investments",
-    "Gifts & Refunds",
-    "Other Income",
-  ];
-
-  const incomeSubcategories = {
-    "Primary Income": ["Salary", "Bonus"],
-    "Secondary Income": ["Freelance", "Side Hustle"],
-    Investments: ["Dividends", "Interest"],
-    "Gifts & Refunds": ["Gift", "Tax Refund"],
-    "Other Income": ["Other"],
-  };
-
-  const subcategoryIcons = {
-    Housing: "🏠",
-    Transportation: "🚗",
-    Food: "🍔",
-    "Utilities and Services": "💡",
-    Healthcare: "⚕️",
-    Insurance: "📑",
-    "Debt Repayments": "💳",
-    "Entertainment and Leisure": "🎉",
-    "Personal Care": "💅",
-    "Clothing and Accessories": "👗",
-    Savings: "💰",
-    Investments: "📈",
-    "Education and Self-Improvement": "🎓",
-    "Gifts and Donations": "🎁",
-    Miscellaneous: "🛠️",
-    Salary: "💼",
-    Bonus: "💲",
-    Freelance: "🧑‍💻",
-    "Side Hustle": "🧰",
-    Dividends: "🧾",
-    Interest: "💹",
-    Gift: "🎁",
-    "Tax Refund": "🔁",
-    Other: "🔖",
-  };
-
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
     if (name === "amount") {
-      // Allow only numbers and decimal points
       const sanitizedValue = value.replace(/[^0-9.]/g, "");
-
-      if (isNaN(sanitizedValue) || sanitizedValue === "") {
+      if (Number.isNaN(Number(sanitizedValue)) || sanitizedValue === "") {
         setFormData({ ...formData, [name]: "" });
       } else {
         setFormData({ ...formData, [name]: sanitizedValue });
       }
     } else if (name === "category") {
       setFormData({ ...formData, [name]: value, subcategory: "" });
-    } else if (name === "subcategory") {
-      setFormData({ ...formData, [name]: value });
     } else if (name === "type") {
       setFormData({ ...formData, [name]: value, category: "", subcategory: "" });
     } else {
@@ -102,23 +39,27 @@ const AddExpenseModal = ({ AddExpense, user }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    let obj = {
-      ...formData,
-      icon: subcategoryIcons[formData.subcategory],
-      email: user.email,
+    const payload = {
+      title: formData.title,
+      amount: formData.amount,
+      category: formData.category,
+      subcategory: formData.subcategory,
+      type: formData.type,
+      icon: SUBCATEGORY_ICONS[formData.subcategory],
     };
 
     try {
-      await AddExpense(obj);
+      await AddExpense(payload);
       setShowModal(false);
       setFormData({
         title: "",
         amount: "",
         category: "",
         subcategory: "",
+        type: formData.type,
       });
-    } catch (error) {
-      console.error("Error adding expense:", error);
+    } catch (_error) {
+      // Parent handles API errors
     }
   };
 
@@ -131,8 +72,6 @@ const AddExpenseModal = ({ AddExpense, user }) => {
 
     if (showModal) {
       window.addEventListener("keydown", handleKeyDown);
-    } else {
-      window.removeEventListener("keydown", handleKeyDown);
     }
 
     return () => {
@@ -140,126 +79,146 @@ const AddExpenseModal = ({ AddExpense, user }) => {
     };
   }, [showModal]);
 
+  const subcategoryOptions =
+    formData.type === "expense"
+      ? EXPENSE_SUBCATEGORIES[formData.category]
+      : INCOME_SUBCATEGORIES[formData.category];
+
   return (
     <>
-      <div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-blue-500 text-white font-bold py-2 px-4 rounded-full fixed bottom-10 right-10 shadow-lg">
-          +
-        </button>
-        {showModal && (
-          <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
-            <div className="bg-white rounded-lg overflow-hidden shadow-xl transform transition-all max-w-md w-full p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">Add Transaction</h2>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600">
-                  &times;
-                </button>
-              </div>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-gray-700">Type</label>
-                  <div className="mt-1 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      className={`${formData.type === "expense" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"} px-3 py-2 rounded`}
-                      onClick={() => setFormData({ ...formData, type: "expense", category: "", subcategory: "" })}
-                    >
-                      Expense
-                    </button>
-                    <button
-                      type="button"
-                      className={`${formData.type === "income" ? "bg-blue-600 text-white" : "bg-gray-100 text-gray-700"} px-3 py-2 rounded`}
-                      onClick={() => setFormData({ ...formData, type: "income", category: "", subcategory: "" })}
-                    >
-                      Income
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-gray-700">
-                    {formData.type === "expense" ? "What did you spend on?" : "What did you earn?"}
-                  </label>
-                  <input
-                    type="text"
-                    name="title"
-                    value={formData.title}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700">Amount</label>
-                  <input
-                    type="text"
-                    name="amount"
-                    value={formData.amount}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700">Category</label>
-                  <select
-                    name="category"
-                    value={formData.category}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Select Category</option>
-                    {formData.type === "expense" ? (
-                      <>
-                        <option value="Essential Expenses">Essential Expenses</option>
-                        <option value="Non-Essential Expenses">Non-Essential Expenses</option>
-                        <option value="Savings and Investments">Savings and Investments</option>
-                        <option value="Miscellaneous">Miscellaneous</option>
-                      </>
-                    ) : (
-                      <>
-                        {incomeCategories.map((cat) => (
-                          <option key={cat} value={cat}>{cat}</option>
-                        ))}
-                      </>
-                    )}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-700">Sub-category</label>
-                  <select
-                    name="subcategory"
-                    value={formData.subcategory}
-                    onChange={handleInputChange}
-                    required
-                    className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Select Sub-category</option>
-                    {formData.category && (
-                      formData.type === "expense"
-                        ? expenseSubcategories[formData.category]
-                        : incomeSubcategories[formData.category]
-                    )?.map((subcategory) => (
-                      <option key={subcategory} value={subcategory}>
-                        {subcategory}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex justify-end">
+      <button
+        type="button"
+        onClick={() => setShowModal(true)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-2xl font-light rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center transition"
+        aria-label="Add transaction"
+      >
+        +
+      </button>
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900/50 backdrop-blur-sm p-4">
+          <div
+            className="bg-white rounded-2xl overflow-hidden shadow-2xl w-full max-w-md"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="add-transaction-title"
+          >
+            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100">
+              <h2 id="add-transaction-title" className="text-lg font-bold text-gray-900">
+                Add Transaction
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="w-8 h-8 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 flex items-center justify-center"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-gray-700">Type</label>
+                <div className="mt-1 grid grid-cols-2 gap-2">
                   <button
-                    type="submit"
-                    className="bg-blue-500 text-white font-bold py-2 px-4 rounded">
-                    Add
+                    type="button"
+                    className={`${
+                      formData.type === "expense"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700"
+                    } px-3 py-2 rounded`}
+                    onClick={() =>
+                      setFormData({ ...formData, type: "expense", category: "", subcategory: "" })
+                    }
+                  >
+                    Expense
+                  </button>
+                  <button
+                    type="button"
+                    className={`${
+                      formData.type === "income"
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700"
+                    } px-3 py-2 rounded`}
+                    onClick={() =>
+                      setFormData({ ...formData, type: "income", category: "", subcategory: "" })
+                    }
+                  >
+                    Income
                   </button>
                 </div>
-              </form>
-            </div>
+              </div>
+              <div>
+                <label className="block text-gray-700">
+                  {formData.type === "expense" ? "What did you spend on?" : "What did you earn?"}
+                </label>
+                <input
+                  type="text"
+                  name="title"
+                  value={formData.title}
+                  onChange={handleInputChange}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700">Amount</label>
+                <input
+                  type="text"
+                  name="amount"
+                  value={formData.amount}
+                  onChange={handleInputChange}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-700">Category</label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleInputChange}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select Category</option>
+                  {(formData.type === "expense" ? EXPENSE_CATEGORY_NAMES : INCOME_CATEGORY_NAMES).map(
+                    (category) => (
+                      <option key={category} value={category}>
+                        {category}
+                      </option>
+                    )
+                  )}
+                </select>
+              </div>
+              <div>
+                <label className="block text-gray-700">Sub-category</label>
+                <select
+                  name="subcategory"
+                  value={formData.subcategory}
+                  onChange={handleInputChange}
+                  required
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Select Sub-category</option>
+                  {subcategoryOptions?.map((subcategory) => (
+                    <option key={subcategory} value={subcategory}>
+                      {subcategory}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-6 rounded-xl transition"
+                >
+                  Add transaction
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </>
   );
 };

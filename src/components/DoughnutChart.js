@@ -1,122 +1,80 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Doughnut } from "react-chartjs-2";
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
-import ChartDataLabels from "chartjs-plugin-datalabels";
+import "../config/chartSetup";
+import {
+  EXPENSE_CATEGORY_NAMES,
+  EXPENSE_CHART_COLORS,
+} from "../constants/categories";
+import { formatCurrency } from "../utils/formatCurrency";
+import EmptyState from "./EmptyState";
 
-ChartJS.register(ArcElement, Tooltip, Legend, ChartDataLabels);
+const DoughnutChart = ({ categorySums }) => {
+  const { data, options, total, hasData } = useMemo(() => {
+    const values = EXPENSE_CATEGORY_NAMES.map((name) => categorySums[name] || 0);
+    const chartTotal = values.reduce((sum, value) => sum + value, 0);
+    const percentages = values.map((value) =>
+      chartTotal > 0 ? ((value / chartTotal) * 100).toFixed(1) : "0"
+    );
 
-const DoughnutChart = ({ expensess, user }) => {
-  if (!user) {
-    return null;
+    return {
+      total: chartTotal,
+      hasData: chartTotal > 0,
+      data: {
+        labels: EXPENSE_CATEGORY_NAMES,
+        datasets: [
+          {
+            data: chartTotal > 0 ? values : [1],
+            backgroundColor: chartTotal > 0 ? EXPENSE_CHART_COLORS.background : ["#E5E7EB"],
+            hoverBackgroundColor: chartTotal > 0 ? EXPENSE_CHART_COLORS.hover : ["#E5E7EB"],
+            borderWidth: 2,
+            borderColor: "#fff",
+            cutout: "65%",
+          },
+        ],
+      },
+      options: {
+        plugins: {
+          legend: { display: false },
+          tooltip: { enabled: chartTotal > 0 },
+          datalabels: {
+            display: (context) => {
+              const value = context.dataset.data[context.dataIndex];
+              if (!value || chartTotal <= 0) return false;
+              const pct = (value / chartTotal) * 100;
+              return pct >= 8;
+            },
+            formatter: (_value, context) => `${percentages[context.dataIndex]}%`,
+            color: "#fff",
+            font: { weight: "bold", size: 11 },
+          },
+        },
+        maintainAspectRatio: false,
+      },
+    };
+  }, [categorySums]);
+
+  if (!hasData) {
+    return (
+      <EmptyState
+        icon="💸"
+        title="No expenses this month"
+        description="Tap + to add your first expense"
+      />
+    );
   }
 
-  const currentMonth = new Date().getMonth();
-  const currentYear = new Date().getFullYear();
-
-  const userExpenses = expensess.filter(
-    (expense) =>
-      expense.email === user.email &&
-      new Date(expense.createdAt).getMonth() === currentMonth &&
-      new Date(expense.createdAt).getFullYear() === currentYear
-  );
-
-  let sum1 = 0;
-  let sum2 = 0;
-  let sum3 = 0;
-  let sum4 = 0;
-
-  userExpenses.forEach((data) => {
-    if (data.category === "Essential Expenses") {
-      sum1 += data.amount;
-    } else if (data.category === "Non-Essential Expenses") {
-      sum2 += data.amount;
-    } else if (data.category === "Savings and Investments") {
-      sum3 += data.amount;
-    } else if (data.category === "Miscellaneous") {
-      sum4 += data.amount;
-    }
-  });
-
-  const total = sum1 + sum2 + sum3 + sum4;
-  const percentages = [
-    ((sum1 / total) * 100).toFixed(2),
-    ((sum2 / total) * 100).toFixed(2),
-    ((sum3 / total) * 100).toFixed(2),
-    ((sum4 / total) * 100).toFixed(2),
-  ];
-
-  const data = {
-    labels: [
-      "Essential Expenses",
-      "Non-Essential Expenses",
-      "Savings and Investments",
-      "Miscellaneous",
-    ],
-    datasets: [
-      {
-        data: [sum1, sum2, sum3, sum4],
-        backgroundColor: ["#3B82F6", "#F59E0B", "#10B981", "#9CA3AF"],
-        hoverBackgroundColor: ["#2563EB", "#D97706", "#059669", "#6B7280"],
-        borderWidth: 2,
-        borderColor: "#fff",
-        cutout: "65%",
-      },
-    ],
-  };
-
-  const options = {
-    plugins: {
-      legend: {
-        display: false,
-        position: "right",
-        labels: {
-          usePointStyle: true,
-          pointStyle: "rect",
-          boxWidth: 20,
-          padding: 20,
-          font: {
-            weight: "bold",
-          },
-        },
-      },
-      tooltip: {
-        callbacks: {
-          label: function (tooltipItem) {
-            const value = tooltipItem.raw;
-            const percentage = ((value / total) * 100).toFixed(2);
-            return `${data.labels[tooltipItem.dataIndex]}: ${value} (${percentage}%)`;
-          },
-        },
-      },
-      datalabels: {
-        formatter: (value, context) => {
-          const percentage = percentages[context.dataIndex];
-          return `${percentage}%`;
-        },
-        color: "#111827",
-        borderRadius: 3,
-        font: {
-          weight: "bold",
-          size: 12,
-        },
-        padding: 10,
-      },
-    },
-    maintainAspectRatio: false,
-  };
-
   return (
-    <>
-      <div className="relative w-full h-56 sm:h-64">
-        <Doughnut data={data} options={options} />
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className="text-center">
-            <div className="text-xs text-gray-500 uppercase tracking-wide">Total</div>
-            <div className="text-xl font-extrabold text-gray-900">₹{total.toFixed(2)}</div>
+    <div className="relative w-full h-56 sm:h-64">
+      <Doughnut data={data} options={options} />
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="text-center">
+          <div className="text-xs text-gray-500 uppercase tracking-wide">Total</div>
+          <div className="text-xl font-extrabold text-gray-900 tabular-nums">
+            {formatCurrency(total)}
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 
