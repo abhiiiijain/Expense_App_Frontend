@@ -1,10 +1,10 @@
 import React from "react";
 import ReactDOM from "react-dom/client";
 import "./index.css";
-import Authentication from "./Authentication";
+import "./config/chartSetup";
+import Authentication from "./app/Authentication";
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
-root.render(
+ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <Authentication />
   </React.StrictMode>

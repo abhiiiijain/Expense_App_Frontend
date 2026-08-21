@@ -1,16 +1,13 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Doughnut } from "react-chartjs-2";
-import "../config/chartSetup";
-import {
-  EXPENSE_CATEGORY_NAMES,
-  EXPENSE_CHART_COLORS,
-} from "../constants/categories";
-import { formatCurrency } from "../utils/formatCurrency";
-import EmptyState from "./EmptyState";
+import { EXPENSE_CATEGORIES } from "../../constants/categories";
+import { formatCurrency } from "../../utils/formatCurrency";
+import EmptyState from "../EmptyState";
 
-const DoughnutChart = ({ categorySums }) => {
+function DoughnutChart({ categorySums }) {
   const { data, options, total, hasData } = useMemo(() => {
-    const values = EXPENSE_CATEGORY_NAMES.map((name) => categorySums[name] || 0);
+    const active = EXPENSE_CATEGORIES.filter((category) => (categorySums[category.name] || 0) > 0);
+    const values = active.map((category) => categorySums[category.name]);
     const chartTotal = values.reduce((sum, value) => sum + value, 0);
     const percentages = values.map((value) =>
       chartTotal > 0 ? ((value / chartTotal) * 100).toFixed(1) : "0"
@@ -20,12 +17,14 @@ const DoughnutChart = ({ categorySums }) => {
       total: chartTotal,
       hasData: chartTotal > 0,
       data: {
-        labels: EXPENSE_CATEGORY_NAMES,
+        labels: active.map((category) => category.name),
         datasets: [
           {
             data: chartTotal > 0 ? values : [1],
-            backgroundColor: chartTotal > 0 ? EXPENSE_CHART_COLORS.background : ["#E5E7EB"],
-            hoverBackgroundColor: chartTotal > 0 ? EXPENSE_CHART_COLORS.hover : ["#E5E7EB"],
+            backgroundColor:
+              chartTotal > 0 ? active.map((category) => category.color) : ["#E5E7EB"],
+            hoverBackgroundColor:
+              chartTotal > 0 ? active.map((category) => category.hoverColor) : ["#E5E7EB"],
             borderWidth: 2,
             borderColor: "#fff",
             cutout: "65%",
@@ -56,7 +55,6 @@ const DoughnutChart = ({ categorySums }) => {
   if (!hasData) {
     return (
       <EmptyState
-        icon="💸"
         title="No expenses this month"
         description="Tap + to add your first expense"
       />
@@ -68,14 +66,14 @@ const DoughnutChart = ({ categorySums }) => {
       <Doughnut data={data} options={options} />
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="text-center">
-          <div className="text-xs text-gray-500 uppercase tracking-wide">Total</div>
-          <div className="text-xl font-extrabold text-gray-900 tabular-nums">
+          <div className="text-xs text-ink-muted uppercase tracking-wide">Total</div>
+          <div className="text-xl font-extrabold text-ink tabular-nums">
             {formatCurrency(total)}
           </div>
         </div>
       </div>
     </div>
   );
-};
+}
 
-export default DoughnutChart;
+export default memo(DoughnutChart);

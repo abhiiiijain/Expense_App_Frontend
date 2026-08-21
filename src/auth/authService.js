@@ -1,35 +1,4 @@
-import axios from "axios";
-import { getApiBaseUrl } from "../config/api";
-
-const apiClient = axios.create({ baseURL: getApiBaseUrl() });
-
-export { apiClient };
-
-let onUnauthorized = null;
-
-export function setOnUnauthorized(callback) {
-  onUnauthorized = callback;
-}
-
-apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error?.response?.status === 401) {
-      if (onUnauthorized) {
-        onUnauthorized();
-      }
-    }
-    return Promise.reject(error);
-  }
-);
+import { apiClient } from "../api/client";
 
 export function getStoredAuth() {
   try {
@@ -58,12 +27,13 @@ export async function login(email, password) {
   return data.user;
 }
 
-export async function registerUser({ firstName, lastName, email, password }) {
+export async function registerUser({ firstName, lastName, email, password, openingBalance }) {
   const { data } = await apiClient.post("auth/register", {
     firstName,
     lastName,
     email,
     password,
+    openingBalance,
   });
   saveAuth(data.token, data.user);
   return data.user;
@@ -76,11 +46,15 @@ export async function fetchMe() {
   return data;
 }
 
-export function logout() {
-  clearAuth();
+export async function updateOpeningBalance(openingBalance) {
+  const { data } = await apiClient.put("auth/opening-balance", { openingBalance });
+  const { token } = getStoredAuth();
+  if (token) {
+    saveAuth(token, data);
+  }
+  return data;
 }
 
-export async function fetchTransactions() {
-  const { data } = await apiClient.get("transactions");
-  return data;
+export function logout() {
+  clearAuth();
 }

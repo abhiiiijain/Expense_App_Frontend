@@ -17,17 +17,18 @@ export function subDays(date, days) {
   return result;
 }
 
-export function isToday(date) {
+function isToday(date) {
   return date.toDateString() === new Date().toDateString();
 }
 
-export function isYesterday(date) {
+function isYesterday(date) {
   const yesterday = new Date();
   yesterday.setDate(yesterday.getDate() - 1);
   return date.toDateString() === yesterday.toDateString();
 }
 
-export function formatChartLabel(date) {
+/** Shared relative date label for charts and transaction groups. */
+export function formatRelativeDateLabel(date) {
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
@@ -35,16 +36,7 @@ export function formatChartLabel(date) {
 
 export function groupTransactionsByDate(transactions) {
   return transactions.reduce((groups, transaction) => {
-    const date = new Date(transaction.createdAt);
-
-    let dateKey;
-    if (isToday(date)) {
-      dateKey = "Today";
-    } else if (isYesterday(date)) {
-      dateKey = "Yesterday";
-    } else {
-      dateKey = date.toLocaleDateString();
-    }
+    const dateKey = formatRelativeDateLabel(new Date(transaction.createdAt));
 
     if (!groups[dateKey]) {
       groups[dateKey] = [];

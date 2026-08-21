@@ -7,24 +7,24 @@ import {
 } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { AuthProvider, useAuth } from "./auth/AuthContext";
-import { setOnUnauthorized } from "./auth/authService";
-import Login from "./auth/Login";
-import Register from "./auth/Register";
-import App from "./App";
-import { APP_NAME } from "./constants/app";
+import { AuthProvider, useAuth } from "../auth/AuthContext";
+import { setOnUnauthorized } from "../api/client";
+import Login from "../auth/Login";
+import Register from "../auth/Register";
+import Dashboard from "./Dashboard";
+import { APP_NAME } from "../constants/app";
 
 function LoadingScreen() {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-      <div className="flex flex-col items-center gap-4">
-        <div className="relative">
-          <div className="h-14 w-14 rounded-full border-4 border-blue-200 border-t-blue-600 animate-spin" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-sm font-extrabold tracking-wide text-blue-700">{APP_NAME}</span>
-          </div>
+    <div className="sw-page flex items-center justify-center">
+      <div className="relative z-10 flex flex-col items-center gap-5 animate-fade-in">
+        <div className="relative h-16 w-16">
+          <div className="absolute inset-0 rounded-full border-[3px] border-sage-200 border-t-sage-600 animate-spin" />
         </div>
-        <div className="text-gray-800 font-semibold">Getting things ready...</div>
+        <div className="text-center">
+          <p className="font-display text-2xl font-bold text-sage-600">{APP_NAME}</p>
+          <p className="text-sm text-ink-muted mt-1">Getting things ready…</p>
+        </div>
       </div>
     </div>
   );
@@ -49,7 +49,7 @@ function AuthRoutes() {
       />
       <Route path="/login" element={user ? <Navigate to="/app" replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/app" replace /> : <Register />} />
-      <Route path="/app" element={user ? <App /> : <Navigate to="/login" replace />} />
+      <Route path="/app" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
     </Routes>
   );
 }
@@ -57,9 +57,9 @@ function AuthRoutes() {
 function Authentication() {
   return (
     <AuthProvider>
-      <Router basename="/">
+      <Router>
         <AuthRoutes />
-        <ToastContainer />
+        <ToastContainer theme="light" />
       </Router>
     </AuthProvider>
   );

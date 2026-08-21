@@ -4,7 +4,7 @@ import {
   getCategoryColor,
 } from "../constants/categories";
 import {
-  formatChartLabel,
+  formatRelativeDateLabel,
   formatDateKey,
   isInCurrentMonth,
   subDays,
@@ -19,17 +19,22 @@ export function useCurrentMonthExpenses(expenses) {
 
 export function useMonthlySummary(expenses, incomes) {
   return useMemo(() => {
-    const monthlyExpenses = expenses.filter((item) => isInCurrentMonth(item.createdAt));
-    const monthlyIncomes = incomes.filter((item) => isInCurrentMonth(item.createdAt));
+    let totalExpense = 0;
+    let totalIncome = 0;
 
-    const totalExpense = monthlyExpenses.reduce((sum, item) => sum + item.amount, 0);
-    const totalIncome = monthlyIncomes.reduce((sum, item) => sum + item.amount, 0);
+    for (const item of expenses) {
+      if (isInCurrentMonth(item.createdAt)) {
+        totalExpense += item.amount;
+      }
+    }
 
-    return {
-      totalExpense,
-      totalIncome,
-      balance: totalIncome - totalExpense,
-    };
+    for (const item of incomes) {
+      if (isInCurrentMonth(item.createdAt)) {
+        totalIncome += item.amount;
+      }
+    }
+
+    return { totalExpense, totalIncome };
   }, [expenses, incomes]);
 }
 
@@ -58,7 +63,7 @@ export function useWeeklyBarChartData(expenses) {
       subDays(new Date(), 6 - index)
     );
     const dateKeys = last7Dates.map((date) => formatDateKey(date));
-    const labels = last7Dates.map((date) => formatChartLabel(date));
+    const labels = last7Dates.map((date) => formatRelativeDateLabel(date));
 
     const sums = Object.fromEntries(
       EXPENSE_CATEGORY_NAMES.map((name) => [name, Array(7).fill(0)])

@@ -4,8 +4,51 @@
 
 @layer base {
   body {
-    @apply bg-gray-100 text-gray-900 antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
-      Arial, sans-serif;
+    @apply bg-sand-50 text-ink antialiased font-sans;
+  }
+
+  ::selection {
+    background: rgba(37, 99, 235, 0.18);
+  }
+}
+
+@layer components {
+  .sw-page {
+    @apply min-h-screen relative overflow-hidden;
+    background:
+      radial-gradient(ellipse 80% 50% at 10% -10%, rgba(37, 99, 235, 0.12), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(59, 130, 246, 0.08), transparent 50%),
+      linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  }
+
+  .sw-page::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.35;
+    background-image: radial-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+    background-size: 22px 22px;
+    mask-image: linear-gradient(180deg, black, transparent 85%);
+  }
+
+  .sw-panel {
+    @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-panel ring-1 ring-ink/5;
+  }
+
+  .sw-input {
+    @apply w-full px-3.5 py-2.5 rounded-xl border border-ink/10 bg-white text-ink
+      placeholder:text-ink-muted/50
+      focus:outline-none focus:ring-2 focus:ring-sage-600/25 focus:border-sage-600 transition;
+  }
+
+  .sw-btn-primary {
+    @apply w-full inline-flex items-center justify-center gap-2 px-4 py-2.5
+      bg-sage-600 hover:bg-sage-700 disabled:bg-sage-200 disabled:text-ink-muted
+      text-white font-semibold rounded-xl transition active:scale-[0.98];
+  }
+
+  .sw-label {
+    @apply block text-sm font-medium text-ink-soft mb-1.5;
   }
 }

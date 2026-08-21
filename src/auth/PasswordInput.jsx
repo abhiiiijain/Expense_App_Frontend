@@ -32,7 +32,6 @@ function PasswordInput({
   onChange,
   placeholder = "Enter your password",
   hint,
-  showLockIcon = true,
   required = true,
   autoComplete = "current-password",
 }) {
@@ -41,21 +40,19 @@ function PasswordInput({
 
   return (
     <div>
-      <label htmlFor={id} className="block text-sm font-medium text-gray-700 mb-1.5">
+      <label htmlFor={id} className="sw-label">
         {label}
       </label>
       <div
-        className={`relative flex items-center rounded-xl border bg-white transition-shadow ${
+        className={`relative flex items-center rounded-xl border bg-white transition ${
           focused
-            ? "border-blue-500 ring-2 ring-blue-500/20"
-            : "border-gray-300 hover:border-gray-400"
+            ? "border-sage-600 ring-2 ring-sage-600/25"
+            : "border-ink/10 hover:border-ink/20"
         }`}
       >
-        {showLockIcon && (
-          <span className="pointer-events-none absolute left-3.5 flex h-5 w-5 items-center justify-center text-gray-400">
-            <LockIcon className="h-5 w-5" />
-          </span>
-        )}
+        <span className="pointer-events-none absolute left-3.5 flex h-5 w-5 items-center justify-center text-ink-muted/70">
+          <LockIcon className="h-5 w-5" />
+        </span>
 
         <input
           id={id}
@@ -67,15 +64,13 @@ function PasswordInput({
           placeholder={placeholder}
           required={required}
           autoComplete={autoComplete}
-          className={`w-full bg-transparent py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none ${
-            showLockIcon ? "pl-11 pr-11" : "px-3.5 pr-11"
-          }`}
+          className="w-full bg-transparent py-2.5 pl-11 pr-11 text-sm text-ink placeholder:text-ink-muted/50 focus:outline-none"
         />
 
         <button
           type="button"
           onClick={() => setShowPassword((visible) => !visible)}
-          className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500/40"
+          className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted hover:bg-sage-50 hover:text-ink-soft focus:outline-none focus:ring-2 focus:ring-sage-600/30"
           aria-label={showPassword ? "Hide password" : "Show password"}
         >
           {showPassword ? (
@@ -85,7 +80,7 @@ function PasswordInput({
           )}
         </button>
       </div>
-      {hint && <p className="mt-1.5 text-xs text-gray-500">{hint}</p>}
+      {hint && <p className="mt-1.5 text-xs text-ink-muted">{hint}</p>}
     </div>
   );
 }
