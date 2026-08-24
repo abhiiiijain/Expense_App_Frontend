@@ -10,7 +10,7 @@ export function AppConfigProvider({ children }) {
     fetchAppConfig()
       .then(setConfig)
       .catch(() => {
-        // Keep defaults when config endpoint is unavailable
+        // Keep bundled fallback taxonomy when the API is unavailable
       });
   }, []);
 
@@ -21,4 +21,29 @@ export function AppConfigProvider({ children }) {
 
 export function useAppConfig() {
   return useContext(AppConfigContext);
+}
+
+/** Categories + subcategories from GET /config (backend is source of truth in production). */
+export function useCategories() {
+  const {
+    expenseCategories,
+    expenseCategoryNames,
+    expenseSubcategories,
+    expenseFilterCategories,
+    incomeCategoryNames,
+    incomeSubcategories,
+    incomeFilterCategories,
+    loaded,
+  } = useAppConfig();
+
+  return {
+    expenseCategories,
+    expenseCategoryNames,
+    expenseSubcategories,
+    expenseFilterCategories,
+    incomeCategoryNames,
+    incomeSubcategories,
+    incomeFilterCategories,
+    loaded,
+  };
 }

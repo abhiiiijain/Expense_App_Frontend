@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { Doughnut } from "react-chartjs-2";
-import { EXPENSE_CATEGORIES } from "../../constants/categories";
+import { useCategories } from "../../config/AppConfigContext";
 import { formatCurrency } from "../../utils/formatCurrency";
 import EmptyState from "../EmptyState";
 
@@ -8,8 +8,10 @@ import EmptyState from "../EmptyState";
 const LABEL_MIN_PCT = 10;
 
 function DoughnutChart({ categorySums }) {
+  const { expenseCategories } = useCategories();
+
   const { data, options, total, hasData } = useMemo(() => {
-    const active = EXPENSE_CATEGORIES.filter((category) => (categorySums[category.name] || 0) > 0);
+    const active = expenseCategories.filter((category) => (categorySums[category.name] || 0) > 0);
     const values = active.map((category) => categorySums[category.name]);
     const chartTotal = values.reduce((sum, value) => sum + value, 0);
 
@@ -58,7 +60,7 @@ function DoughnutChart({ categorySums }) {
         },
       },
     };
-  }, [categorySums]);
+  }, [categorySums, expenseCategories]);
 
   if (!hasData) {
     return (

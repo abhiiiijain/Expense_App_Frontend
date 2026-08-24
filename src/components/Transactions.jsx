@@ -1,11 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import {
-  EXPENSE_FILTER_CATEGORIES,
-  EXPENSE_SUBCATEGORIES,
-  INCOME_FILTER_CATEGORIES,
-  INCOME_SUBCATEGORIES,
-} from "../constants/categories";
-import { useAppConfig } from "../config/AppConfigContext";
+import { useAppConfig, useCategories } from "../config/AppConfigContext";
 import { groupTransactionsByDate, isTransactionEditable } from "../utils/dateHelpers";
 import { formatCurrency } from "../utils/formatCurrency";
 import ConfirmModal from "./ConfirmModal";
@@ -158,6 +152,12 @@ const Transactions = ({
   const [selectedIncomeSubcategory, setSelectedIncomeSubcategory] = useState("All");
   const [pendingDelete, setPendingDelete] = useState(null);
   const { editWindowMs } = useAppConfig();
+  const {
+    expenseFilterCategories,
+    expenseSubcategories,
+    incomeFilterCategories,
+    incomeSubcategories,
+  } = useCategories();
 
   const filteredExpenses = useMemo(() => {
     if (tab !== "expense") return [];
@@ -182,10 +182,10 @@ const Transactions = ({
   const isExpense = tab === "expense";
   const selectedMain = isExpense ? selectedMainCategory : selectedIncomeMainCategory;
   const selectedSub = isExpense ? selectedSubcategory : selectedIncomeSubcategory;
-  const filterCategories = isExpense ? EXPENSE_FILTER_CATEGORIES : INCOME_FILTER_CATEGORIES;
+  const filterCategories = isExpense ? expenseFilterCategories : incomeFilterCategories;
   const subOptions = isExpense
-    ? ["All", ...(EXPENSE_SUBCATEGORIES[selectedMainCategory] || [])]
-    : ["All", ...(INCOME_SUBCATEGORIES[selectedIncomeMainCategory] || [])];
+    ? ["All", ...(expenseSubcategories[selectedMainCategory] || [])]
+    : ["All", ...(incomeSubcategories[selectedIncomeMainCategory] || [])];
 
   const requestDelete = (transaction, type) => {
     setPendingDelete({

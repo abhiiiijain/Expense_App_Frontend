@@ -1,5 +1,4 @@
 import { useMemo } from "react";
-import { EXPENSE_CATEGORIES, EXPENSE_CATEGORY_NAMES } from "../constants/categories";
 import {
   formatChartDateLabel,
   formatChartDayTooltip,
@@ -43,11 +42,9 @@ export function useMonthlySummary(expenses, incomes) {
   }, [expenses, incomes]);
 }
 
-export function useCategorySums(monthlyExpenses) {
+export function useCategorySums(monthlyExpenses, expenseCategoryNames) {
   return useMemo(() => {
-    const sums = Object.fromEntries(
-      EXPENSE_CATEGORY_NAMES.map((name) => [name, 0])
-    );
+    const sums = Object.fromEntries(expenseCategoryNames.map((name) => [name, 0]));
 
     monthlyExpenses.forEach((expense) => {
       if (sums[expense.category] !== undefined) {
@@ -56,10 +53,10 @@ export function useCategorySums(monthlyExpenses) {
     });
 
     return sums;
-  }, [monthlyExpenses]);
+  }, [monthlyExpenses, expenseCategoryNames]);
 }
 
-export function useWeeklyBarChartData(expenses) {
+export function useWeeklyBarChartData(expenses, expenseCategories, expenseCategoryNames) {
   return useMemo(() => {
     const weekStart = subDays(new Date(), 6);
     weekStart.setHours(0, 0, 0, 0);
@@ -72,7 +69,7 @@ export function useWeeklyBarChartData(expenses) {
     const tooltipLabels = last7Dates.map((date) => formatChartDayTooltip(date));
 
     const sums = Object.fromEntries(
-      EXPENSE_CATEGORY_NAMES.map((name) => [name, Array(7).fill(0)])
+      expenseCategoryNames.map((name) => [name, Array(7).fill(0)])
     );
 
     expenses.forEach((expense) => {
@@ -88,11 +85,10 @@ export function useWeeklyBarChartData(expenses) {
     });
 
     const colorByName = Object.fromEntries(
-      EXPENSE_CATEGORIES.map((category) => [category.name, category.color])
+      expenseCategories.map((category) => [category.name, category.color])
     );
 
-    // Only categories with spend this week — keeps stacks readable
-    const activeCategories = EXPENSE_CATEGORY_NAMES.filter((name) =>
+    const activeCategories = expenseCategoryNames.filter((name) =>
       sums[name].some((value) => value > 0)
     );
 
@@ -105,7 +101,6 @@ export function useWeeklyBarChartData(expenses) {
       categoryPercentage: 0.72,
       barPercentage: 0.9,
       borderSkipped: false,
-      // Only round the top of the uppermost non-zero segment per day
       borderRadius(ctx) {
         const { chart, dataIndex, datasetIndex } = ctx;
         const stack = chart.data.datasets;
@@ -133,5 +128,5 @@ export function useWeeklyBarChartData(expenses) {
       weekTotal,
       hasData: weekTotal > 0,
     };
-  }, [expenses]);
+  }, [expenses, expenseCategories, expenseCategoryNames]);
 }

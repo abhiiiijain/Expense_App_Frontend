@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -12,8 +12,9 @@ import { AppConfigProvider } from "../config/AppConfigContext";
 import { setOnUnauthorized } from "../api/client";
 import Login from "../auth/Login";
 import Register from "../auth/Register";
-import Dashboard from "./Dashboard";
 import BrandLogo from "../components/BrandLogo";
+
+const Dashboard = lazy(() => import("./Dashboard"));
 
 function LoadingScreen() {
   return (
@@ -48,7 +49,18 @@ function AuthRoutes() {
       />
       <Route path="/login" element={user ? <Navigate to="/app" replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to="/app" replace /> : <Register />} />
-      <Route path="/app" element={user ? <Dashboard /> : <Navigate to="/login" replace />} />
+      <Route
+        path="/app"
+        element={
+          user ? (
+            <Suspense fallback={<LoadingScreen />}>
+              <Dashboard />
+            </Suspense>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
     </Routes>
   );
 }

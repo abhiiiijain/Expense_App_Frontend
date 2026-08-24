@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import "../config/chartSetup";
 import Transactions from "../components/Transactions";
 import SummaryCards from "../components/SummaryCards";
 import AddExpenseModal from "../components/AddExpenseModal";
@@ -17,6 +18,7 @@ import { useAppConfig } from "../config/AppConfigContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import BrandLogo from "../components/BrandLogo";
 import { isTransactionEditable } from "../utils/dateHelpers";
+import { editWindowToastMessage } from "../utils/formatEditWindow";
 import { toast } from "react-toastify";
 
 function getGreeting() {
@@ -105,7 +107,7 @@ function Dashboard() {
 
   const openEditModal = useCallback((transaction, type) => {
     if (!isTransactionEditable(transaction.createdAt, editWindowMs)) {
-      toast.info("Edits are only allowed within 24 hours of adding", {
+      toast.info(editWindowToastMessage(editWindowMs), {
         position: "top-center",
       });
       return;
@@ -130,49 +132,44 @@ function Dashboard() {
   }, []);
 
   const saveTransaction = useCallback(async (transaction, existing) => {
-    if (existing?._id) {
-      try {
-        const data = await updateTransactionRequest(existing.type, existing._id, transaction);
+    const type = existing?.type ?? transaction.type;
+    const isIncome = type === "income";
 
-        if (existing.type === "income") {
-          setIncomes((prev) =>
-            prev.map((income) => (income._id === existing._id ? data : income))
-          );
-        } else {
-          setExpenses((prev) =>
-            prev.map((expense) => (expense._id === existing._id ? data : expense))
-          );
-        }
+    try {
+      if (existing?._id) {
+        const data = await updateTransactionRequest(type, existing._id, transaction);
+        const updater = (prev) =>
+          prev.map((item) => (item._id === existing._id ? data : item));
+
+        if (isIncome) setIncomes(updater);
+        else setExpenses(updater);
+
         toast.success("Updated", { position: "top-center" });
-      } catch (error) {
-        toast.error(error?.response?.data?.message || "Could not update transaction");
-        throw error;
+        return;
       }
-      return;
-    }
 
-    try {
       const data = await createTransaction(transaction);
+      if (isIncome) setIncomes((prev) => [data, ...prev]);
+      else setExpenses((prev) => [data, ...prev]);
 
-      if (transaction.type === "income") {
-        setIncomes((prev) => [data, ...prev]);
-      } else {
-        setExpenses((prev) => [data, ...prev]);
-      }
-      toast.success(
-        transaction.type === "income" ? "Income added" : "Expense added",
-        { position: "top-center" }
+      toast.success(isIncome ? "Income added" : "Expense added", { position: "top-center" });
+    } catch (error) {
+      toast.error(
+        error?.response?.data?.message ||
+          (existing?._id ? "Could not update transaction" : "Could not save transaction")
       );
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Could not save transaction");
       throw error;
     }
   }, []);
 
-  const deleteExpense = useCallback(async (id) => {
+  const removeTransaction = useCallback(async (type, id) => {
     try {
-      await deleteTransactionRequest("expense", id);
-      setExpenses((prev) => prev.filter((expense) => expense._id !== id));
+      await deleteTransactionRequest(type, id);
+      if (type === "income") {
+        setIncomes((prev) => prev.filter((income) => income._id !== id));
+      } else {
+        setExpenses((prev) => prev.filter((expense) => expense._id !== id));
+      }
       toast.success("Deleted", { position: "top-center" });
     } catch (error) {
       toast.error(error?.response?.data?.message || "Could not delete");
@@ -180,16 +177,8 @@ function Dashboard() {
     }
   }, []);
 
-  const deleteIncome = useCallback(async (id) => {
-    try {
-      await deleteTransactionRequest("income", id);
-      setIncomes((prev) => prev.filter((income) => income._id !== id));
-      toast.success("Deleted", { position: "top-center" });
-    } catch (error) {
-      toast.error(error?.response?.data?.message || "Could not delete");
-      throw error;
-    }
-  }, []);
+  const deleteExpense = useCallback((id) => removeTransaction("expense", id), [removeTransaction]);
+  const deleteIncome = useCallback((id) => removeTransaction("income", id), [removeTransaction]);
 
   const openOpeningBalanceModal = useCallback(() => {
     setOpeningModalRequired(false);

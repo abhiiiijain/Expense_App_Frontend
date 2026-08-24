@@ -1,12 +1,7 @@
 import { useState, useEffect } from "react";
 import ModalShell from "./ModalShell";
-import {
-  EXPENSE_CATEGORY_NAMES,
-  EXPENSE_SUBCATEGORIES,
-  INCOME_CATEGORY_NAMES,
-  INCOME_SUBCATEGORIES,
-  SUBCATEGORY_ICONS,
-} from "../constants/categories";
+import { useCategories } from "../config/AppConfigContext";
+import { SUBCATEGORY_ICONS } from "../constants/categories";
 import { formatAmountInput, roundMoney, sanitizeAmountInput } from "../utils/sanitizeAmount";
 
 const emptyForm = (type = "expense") => ({
@@ -36,6 +31,12 @@ const AddExpenseModal = ({
   const isEditing = Boolean(editingTransaction);
   const [formData, setFormData] = useState(emptyForm(defaultType));
   const [saving, setSaving] = useState(false);
+  const {
+    expenseCategoryNames,
+    expenseSubcategories,
+    incomeCategoryNames,
+    incomeSubcategories,
+  } = useCategories();
 
   useEffect(() => {
     if (!open) return;
@@ -81,8 +82,8 @@ const AddExpenseModal = ({
 
   const subcategoryOptions =
     formData.type === "expense"
-      ? EXPENSE_SUBCATEGORIES[formData.category]
-      : INCOME_SUBCATEGORIES[formData.category];
+      ? expenseSubcategories[formData.category]
+      : incomeSubcategories[formData.category];
 
   return (
     <>
@@ -202,7 +203,7 @@ const AddExpenseModal = ({
               className="sw-input"
             >
               <option value="">Select category</option>
-              {(formData.type === "expense" ? EXPENSE_CATEGORY_NAMES : INCOME_CATEGORY_NAMES).map(
+              {(formData.type === "expense" ? expenseCategoryNames : incomeCategoryNames).map(
                 (category) => (
                   <option key={category} value={category}>
                     {category}

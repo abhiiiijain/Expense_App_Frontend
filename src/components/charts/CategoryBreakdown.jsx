@@ -2,12 +2,12 @@ import { memo, useMemo, useState } from "react";
 import DoughnutChart from "./DoughnutChart";
 import CardHeader from "./CardHeader";
 import ModalShell from "../ModalShell";
+import { useCategories } from "../../config/AppConfigContext";
 import {
   useCategorySums,
   useCurrentMonthExpenses,
   useMonthExpenseTotal,
 } from "../../hooks/useExpenseAnalytics";
-import { EXPENSE_CATEGORIES } from "../../constants/categories";
 import { formatCurrency, formatPercent } from "../../utils/formatCurrency";
 import { clampBarWidth } from "../../utils/clampBarWidth";
 
@@ -144,16 +144,20 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
 function CategoryBreakdown({ expenses }) {
   const [showEmpty, setShowEmpty] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
+  const { expenseCategories } = useCategories();
   const monthlyExpenses = useCurrentMonthExpenses(expenses);
-  const categorySums = useCategorySums(monthlyExpenses);
+  const categorySums = useCategorySums(
+    monthlyExpenses,
+    expenseCategories.map((category) => category.name)
+  );
   const monthTotal = useMonthExpenseTotal(monthlyExpenses);
 
   const { activeCategories, emptyCategories, hasSpending, subcategoryBreakdowns } =
     useMemo(() => {
-      const active = EXPENSE_CATEGORIES.filter((c) => categorySums[c.name] > 0).sort(
+      const active = expenseCategories.filter((c) => categorySums[c.name] > 0).sort(
         (a, b) => categorySums[b.name] - categorySums[a.name]
       );
-      const empty = EXPENSE_CATEGORIES.filter((c) => !categorySums[c.name]);
+      const empty = expenseCategories.filter((c) => !categorySums[c.name]);
 
       const breakdownMap = {};
       monthlyExpenses.forEach((expense) => {
@@ -177,7 +181,7 @@ function CategoryBreakdown({ expenses }) {
         hasSpending: active.length > 0,
         subcategoryBreakdowns,
       };
-    }, [monthlyExpenses, categorySums]);
+    }, [monthlyExpenses, categorySums, expenseCategories]);
 
   return (
     <div className="sw-panel p-4 sm:p-5 w-full">

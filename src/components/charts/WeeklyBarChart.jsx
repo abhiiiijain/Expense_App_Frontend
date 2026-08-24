@@ -1,5 +1,6 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { Bar } from "react-chartjs-2";
+import { useCategories } from "../../config/AppConfigContext";
 import { useWeeklyBarChartData } from "../../hooks/useExpenseAnalytics";
 import { formatChartAxis, formatCurrency } from "../../utils/formatCurrency";
 import EmptyState from "../EmptyState";
@@ -23,8 +24,12 @@ function useIsNarrow(breakpoint = 640) {
 
 function WeeklyBarChart({ expenses }) {
   const isNarrow = useIsNarrow();
-  const { labels, tooltipLabels, datasets, weekTotal, hasData } =
-    useWeeklyBarChartData(expenses);
+  const { expenseCategories, expenseCategoryNames } = useCategories();
+  const { labels, tooltipLabels, datasets, weekTotal, hasData } = useWeeklyBarChartData(
+    expenses,
+    expenseCategories,
+    expenseCategoryNames
+  );
 
   const options = useMemo(
     () => ({

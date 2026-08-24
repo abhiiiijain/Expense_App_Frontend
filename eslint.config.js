@@ -43,7 +43,7 @@ export default [
     },
   },
   {
-    files: ["vite.config.js", "vitest.config.js", "tailwind.config.js", "postcss.config.js", "eslint.config.js"],
+    files: ["vite.config.js", "tailwind.config.js", "postcss.config.js", "eslint.config.js"],
     languageOptions: {
       globals: {
         ...globals.node,
