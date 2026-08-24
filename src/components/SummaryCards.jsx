@@ -1,6 +1,6 @@
 import { memo, useMemo } from "react";
 import { useMonthlySummary } from "../hooks/useExpenseAnalytics";
-import { formatCurrency } from "../utils/formatCurrency";
+import { formatCurrency, formatPercent } from "../utils/formatCurrency";
 
 function SummaryCards({ expenses, incomes, openingBalance = 0, onEditOpeningBalance }) {
   const { totalIncome, totalExpense } = useMonthlySummary(expenses, incomes);
@@ -13,7 +13,8 @@ function SummaryCards({ expenses, incomes, openingBalance = 0, onEditOpeningBala
 
   const monthLabel = new Date().toLocaleString("en-IN", { month: "long", year: "numeric" });
   const spentPct =
-    totalIncome > 0 ? Math.min(100, Math.round((totalExpense / totalIncome) * 100)) : null;
+    totalIncome > 0 ? Math.min(100, (totalExpense / totalIncome) * 100) : null;
+  const spentPctLabel = spentPct !== null ? formatPercent(spentPct) : null;
 
   const cards = [
     {
@@ -49,10 +50,10 @@ function SummaryCards({ expenses, incomes, openingBalance = 0, onEditOpeningBala
           </p>
           <h2 className="font-display text-xl font-semibold text-ink">{monthLabel}</h2>
         </div>
-        {spentPct !== null && (
+        {spentPctLabel && (
           <p className="text-xs sm:text-sm text-ink-muted">
             You’ve spent{" "}
-            <span className="font-semibold text-ink">{spentPct}%</span> of this month’s income
+            <span className="font-semibold text-ink">{spentPctLabel}</span> of this month’s income
           </p>
         )}
       </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import ModalShell from "./ModalShell";
 import {
   EXPENSE_CATEGORY_NAMES,
   EXPENSE_SUBCATEGORIES,
@@ -6,7 +7,7 @@ import {
   INCOME_SUBCATEGORIES,
   SUBCATEGORY_ICONS,
 } from "../constants/categories";
-import { sanitizeAmountInput } from "../utils/sanitizeAmount";
+import { formatAmountInput, roundMoney, sanitizeAmountInput } from "../utils/sanitizeAmount";
 
 const emptyForm = (type = "expense") => ({
   title: "",
@@ -16,43 +17,39 @@ const emptyForm = (type = "expense") => ({
   type,
 });
 
+const formFromTransaction = (transaction) => ({
+  title: transaction.title || "",
+  amount: transaction.amount != null ? formatAmountInput(transaction.amount) : "",
+  category: transaction.category || "",
+  subcategory: transaction.subcategory || "",
+  type: transaction.type === "income" ? "income" : "expense",
+});
+
 const AddExpenseModal = ({
   open,
   onClose,
   onSubmit,
   defaultType = "expense",
   onOpenRequest,
+  editingTransaction = null,
 }) => {
+  const isEditing = Boolean(editingTransaction);
   const [formData, setFormData] = useState(emptyForm(defaultType));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (open) {
-      setFormData(emptyForm(defaultType));
-      setSaving(false);
-    }
-  }, [open, defaultType]);
-
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === "Escape") onClose?.();
-    };
-    if (open) {
-      window.addEventListener("keydown", handleKeyDown);
-    }
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, onClose]);
+    if (!open) return;
+    setFormData(
+      editingTransaction ? formFromTransaction(editingTransaction) : emptyForm(defaultType)
+    );
+    setSaving(false);
+  }, [open, defaultType, editingTransaction]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
 
     if (name === "amount") {
-      const sanitizedValue = sanitizeAmountInput(value);
-      if (Number.isNaN(Number(sanitizedValue)) || sanitizedValue === "") {
-        setFormData((prev) => ({ ...prev, [name]: "" }));
-      } else {
-        setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
-      }
+      setFormData((prev) => ({ ...prev, [name]: sanitizeAmountInput(value) }));
     } else if (name === "category") {
       setFormData((prev) => ({ ...prev, [name]: value, subcategory: "" }));
     } else {
@@ -64,7 +61,7 @@ const AddExpenseModal = ({
     e.preventDefault();
     const payload = {
       title: formData.title,
-      amount: formData.amount,
+      amount: roundMoney(formData.amount),
       category: formData.category,
       subcategory: formData.subcategory,
       type: formData.type,
@@ -73,7 +70,7 @@ const AddExpenseModal = ({
 
     try {
       setSaving(true);
-      await onSubmit(payload);
+      await onSubmit(payload, editingTransaction);
       onClose?.();
     } catch (_error) {
       // Parent shows toast
@@ -99,136 +96,150 @@ const AddExpenseModal = ({
         <span className="text-sm hidden sm:inline">Add</span>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-0 sm:p-4 animate-fade-in">
-          <div
-            className="bg-white rounded-t-2xl sm:rounded-2xl overflow-hidden shadow-panel w-full max-w-md ring-1 ring-ink/5 animate-fade-up max-h-[92vh] overflow-y-auto"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="add-transaction-title"
-          >
-            <div className="flex justify-between items-center px-6 py-4 border-b border-ink/5 bg-sand-50/80 sticky top-0">
-              <div>
-                <h2 id="add-transaction-title" className="font-display text-lg font-semibold text-ink">
-                  Add {formData.type === "income" ? "income" : "expense"}
-                </h2>
-                <p className="text-xs text-ink-muted mt-0.5">Saved to this month’s dashboard</p>
-              </div>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-8 h-8 rounded-lg text-ink-muted hover:text-ink hover:bg-white flex items-center justify-center"
-                aria-label="Close"
-              >
-                ✕
-              </button>
-            </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div>
-                <label className="sw-label">Type</label>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    className={`${
-                      formData.type === "expense"
-                        ? "bg-rose-600 text-white"
-                        : "bg-sand-100 text-ink-soft hover:bg-sand-50"
-                    } px-3 py-2.5 rounded-xl text-sm font-semibold transition`}
-                    onClick={() =>
-                      setFormData({ ...emptyForm("expense"), type: "expense" })
-                    }
-                  >
-                    Expense
-                  </button>
-                  <button
-                    type="button"
-                    className={`${
-                      formData.type === "income"
-                        ? "bg-emerald-600 text-white"
-                        : "bg-sand-100 text-ink-soft hover:bg-sand-50"
-                    } px-3 py-2.5 rounded-xl text-sm font-semibold transition`}
-                    onClick={() =>
-                      setFormData({ ...emptyForm("income"), type: "income" })
-                    }
-                  >
-                    Income
-                  </button>
-                </div>
-              </div>
-              <div>
-                <label className="sw-label">
-                  {formData.type === "expense" ? "What did you spend on?" : "What did you earn?"}
-                </label>
-                <input
-                  type="text"
-                  name="title"
-                  value={formData.title}
-                  onChange={handleInputChange}
-                  required
-                  autoFocus
-                  className="sw-input"
-                  placeholder={formData.type === "expense" ? "e.g. Groceries" : "e.g. Salary"}
-                />
-              </div>
-              <div>
-                <label className="sw-label">Amount (₹)</label>
-                <input
-                  type="text"
-                  name="amount"
-                  inputMode="decimal"
-                  value={formData.amount}
-                  onChange={handleInputChange}
-                  required
-                  className="sw-input"
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className="sw-label">Category</label>
-                <select
-                  name="category"
-                  value={formData.category}
-                  onChange={handleInputChange}
-                  required
-                  className="sw-input"
-                >
-                  <option value="">Select category</option>
-                  {(formData.type === "expense" ? EXPENSE_CATEGORY_NAMES : INCOME_CATEGORY_NAMES).map(
-                    (category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    )
-                  )}
-                </select>
-              </div>
-              <div>
-                <label className="sw-label">Sub-category</label>
-                <select
-                  name="subcategory"
-                  value={formData.subcategory}
-                  onChange={handleInputChange}
-                  required
-                  disabled={!formData.category}
-                  className="sw-input disabled:opacity-60"
-                >
-                  <option value="">
-                    {formData.category ? "Select sub-category" : "Choose a category first"}
-                  </option>
-                  {subcategoryOptions?.map((subcategory) => (
-                    <option key={subcategory} value={subcategory}>
-                      {subcategory}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <button type="submit" disabled={saving} className="sw-btn-primary">
-                {saving ? "Saving…" : `Save ${formData.type}`}
-              </button>
-            </form>
+      <ModalShell
+        open={open}
+        onClose={() => {
+          if (!saving) onClose?.();
+        }}
+        closeOnEscape={!saving}
+        closeOnBackdrop={!saving}
+        variant="sheet"
+        maxWidth="md"
+        zIndex={50}
+        panelClassName="max-h-[92vh] overflow-y-auto"
+        labelledBy="add-transaction-title"
+      >
+        <div className="flex justify-between items-center px-6 py-4 border-b border-ink/5 bg-sand-50/80 sticky top-0">
+          <div>
+            <h2 id="add-transaction-title" className="font-display text-lg font-semibold text-ink">
+              {isEditing ? "Edit" : "Add"}{" "}
+              {formData.type === "income" ? "income" : "expense"}
+            </h2>
+            <p className="text-xs text-ink-muted mt-0.5">
+              {isEditing
+                ? "Changes update your dashboard totals"
+                : "Saved to this month’s dashboard"}
+            </p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-8 h-8 rounded-lg text-ink-muted hover:text-ink hover:bg-white flex items-center justify-center"
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </div>
-      )}
+        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+          {!isEditing && (
+            <div>
+              <label className="sw-label">Type</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className={`${
+                    formData.type === "expense"
+                      ? "bg-rose-600 text-white"
+                      : "bg-sand-100 text-ink-soft hover:bg-sand-50"
+                  } px-3 py-2.5 rounded-xl text-sm font-semibold transition`}
+                  onClick={() =>
+                    setFormData({ ...emptyForm("expense"), type: "expense" })
+                  }
+                >
+                  Expense
+                </button>
+                <button
+                  type="button"
+                  className={`${
+                    formData.type === "income"
+                      ? "bg-emerald-600 text-white"
+                      : "bg-sand-100 text-ink-soft hover:bg-sand-50"
+                  } px-3 py-2.5 rounded-xl text-sm font-semibold transition`}
+                  onClick={() =>
+                    setFormData({ ...emptyForm("income"), type: "income" })
+                  }
+                >
+                  Income
+                </button>
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="sw-label">
+              {formData.type === "expense" ? "What did you spend on?" : "What did you earn?"}
+            </label>
+            <input
+              type="text"
+              name="title"
+              value={formData.title}
+              onChange={handleInputChange}
+              required
+              autoFocus
+              className="sw-input"
+              placeholder={formData.type === "expense" ? "e.g. Groceries" : "e.g. Salary"}
+            />
+          </div>
+          <div>
+            <label className="sw-label">Amount (₹)</label>
+            <input
+              type="text"
+              name="amount"
+              inputMode="decimal"
+              value={formData.amount}
+              onChange={handleInputChange}
+              required
+              className="sw-input"
+              placeholder="0.00"
+            />
+          </div>
+          <div>
+            <label className="sw-label">Category</label>
+            <select
+              name="category"
+              value={formData.category}
+              onChange={handleInputChange}
+              required
+              className="sw-input"
+            >
+              <option value="">Select category</option>
+              {(formData.type === "expense" ? EXPENSE_CATEGORY_NAMES : INCOME_CATEGORY_NAMES).map(
+                (category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                )
+              )}
+            </select>
+          </div>
+          <div>
+            <label className="sw-label">Sub-category</label>
+            <select
+              name="subcategory"
+              value={formData.subcategory}
+              onChange={handleInputChange}
+              required
+              disabled={!formData.category}
+              className="sw-input disabled:opacity-60"
+            >
+              <option value="">
+                {formData.category ? "Select sub-category" : "Choose a category first"}
+              </option>
+              {subcategoryOptions?.map((subcategory) => (
+                <option key={subcategory} value={subcategory}>
+                  {subcategory}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" disabled={saving} className="sw-btn-primary">
+            {saving
+              ? "Saving…"
+              : isEditing
+                ? `Update ${formData.type}`
+                : `Save ${formData.type}`}
+          </button>
+        </form>
+      </ModalShell>
     </>
   );
 };

@@ -4,8 +4,9 @@ import { useAuth } from "./AuthContext";
 import { toast } from "react-toastify";
 import PasswordInput from "./PasswordInput";
 import AuthLayout from "./AuthLayout";
+import LoadingSpinner from "../components/LoadingSpinner";
 import { APP_NAME } from "../constants/app";
-import { sanitizeAmountInput } from "../utils/sanitizeAmount";
+import { roundMoney, sanitizeAmountInput } from "../utils/sanitizeAmount";
 
 function Register() {
   const { setUser } = useAuth();
@@ -25,7 +26,7 @@ function Register() {
         lastName: lname,
         email,
         password,
-        openingBalance: openingBalance === "" ? undefined : Number(openingBalance),
+        openingBalance: openingBalance === "" ? undefined : roundMoney(openingBalance),
       });
       setUser(user);
       toast.success("Account created successfully", { position: "top-center" });
@@ -123,12 +124,7 @@ function Register() {
         </div>
 
         <button type="submit" disabled={loading} className="sw-btn-primary mt-2">
-          {loading && (
-            <svg className="h-5 w-5 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-            </svg>
-          )}
+          {loading && <LoadingSpinner />}
           Create account
         </button>
       </form>

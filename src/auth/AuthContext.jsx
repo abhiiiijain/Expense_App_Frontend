@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { getStoredAuth, fetchMe, logout as clearSession } from "./authService";
+import { getStoredAuth, fetchMe, clearAuth } from "./authService";
 
 const AuthContext = createContext(null);
 
@@ -20,7 +20,7 @@ export function AuthProvider({ children }) {
         const me = await fetchMe();
         setUser({ ...storedUser, ...me });
       } catch {
-        clearSession();
+        clearAuth();
         setUser(null);
       } finally {
         setLoading(false);
@@ -31,7 +31,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
-    clearSession();
+    clearAuth();
     setUser(null);
   }, []);
 

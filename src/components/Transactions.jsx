@@ -5,8 +5,10 @@ import {
   INCOME_FILTER_CATEGORIES,
   INCOME_SUBCATEGORIES,
 } from "../constants/categories";
-import { groupTransactionsByDate } from "../utils/dateHelpers";
+import { useAppConfig } from "../config/AppConfigContext";
+import { groupTransactionsByDate, isTransactionEditable } from "../utils/dateHelpers";
 import { formatCurrency } from "../utils/formatCurrency";
+import ConfirmModal from "./ConfirmModal";
 import EmptyState from "./EmptyState";
 
 function filterByCategory(transactions, mainCategory, subcategory) {
@@ -45,8 +47,9 @@ function FilterChips({ options, selected, onSelect, activeClass, inactiveClass }
   );
 }
 
-function TransactionRow({ transaction, type, onDelete }) {
+function TransactionRow({ transaction, type, onEdit, onDelete, editWindowMs }) {
   const isIncome = type === "income";
+  const canModify = isTransactionEditable(transaction.createdAt, editWindowMs);
   const subtitle =
     transaction.title === transaction.subcategory
       ? transaction.category
@@ -77,26 +80,36 @@ function TransactionRow({ transaction, type, onDelete }) {
         >
           {formatCurrency(signedAmount, { signed: true })}
         </div>
-        <button
-          type="button"
-          title={`Delete ${type}`}
-          aria-label={`Delete ${type}`}
-          className="w-7 h-7 rounded-md text-ink-muted/70 hover:text-rose-700 hover:bg-rose-50 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition"
-          onClick={() => {
-            if (!onDelete) return;
-            if (window.confirm(`Delete this ${type}?`)) {
-              onDelete(transaction._id);
-            }
-          }}
-        >
-          ✕
-        </button>
+        <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition">
+          {canModify && (
+            <button
+              type="button"
+              title={`Edit ${type}`}
+              aria-label={`Edit ${type}`}
+              className="w-7 h-7 rounded-md text-ink-muted/70 hover:text-sage-700 hover:bg-sage-50 text-xs transition"
+              onClick={() => onEdit?.(transaction)}
+            >
+              ✎
+            </button>
+          )}
+          {canModify && (
+            <button
+              type="button"
+              title={`Delete ${type}`}
+              aria-label={`Delete ${type}`}
+              className="w-7 h-7 rounded-md text-ink-muted/70 hover:text-rose-700 hover:bg-rose-50 text-xs transition"
+              onClick={() => onDelete?.(transaction)}
+            >
+              ✕
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );
 }
 
-function TransactionList({ grouped, type, onDelete, emptyTitle, emptyDescription }) {
+function TransactionList({ grouped, type, onEdit, onDelete, editWindowMs, emptyTitle, emptyDescription }) {
   const dates = Object.keys(grouped);
 
   if (dates.length === 0) {
@@ -106,7 +119,7 @@ function TransactionList({ grouped, type, onDelete, emptyTitle, emptyDescription
   }
 
   return (
-    <div className="sw-scroll flex-1 min-h-0 overflow-y-auto -mr-1 pr-2 space-y-4">
+    <div className="flex-1 min-h-0 overflow-y-auto space-y-4">
       {dates.map((date) => (
         <section key={date}>
           <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted mb-1.5 px-2.5 sticky top-0 z-[1] bg-white/95 backdrop-blur-sm py-1.5">
@@ -118,7 +131,9 @@ function TransactionList({ grouped, type, onDelete, emptyTitle, emptyDescription
                 key={transaction._id}
                 transaction={transaction}
                 type={type}
+                onEdit={onEdit}
                 onDelete={onDelete}
+                editWindowMs={editWindowMs}
               />
             ))}
           </div>
@@ -131,6 +146,8 @@ function TransactionList({ grouped, type, onDelete, emptyTitle, emptyDescription
 const Transactions = ({
   expenses = [],
   incomes = [],
+  onEditExpense,
+  onEditIncome,
   onDeleteExpense,
   onDeleteIncome,
 }) => {
@@ -139,6 +156,8 @@ const Transactions = ({
   const [selectedSubcategory, setSelectedSubcategory] = useState("All");
   const [selectedIncomeMainCategory, setSelectedIncomeMainCategory] = useState("All");
   const [selectedIncomeSubcategory, setSelectedIncomeSubcategory] = useState("All");
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const { editWindowMs } = useAppConfig();
 
   const filteredExpenses = useMemo(() => {
     if (tab !== "expense") return [];
@@ -167,6 +186,25 @@ const Transactions = ({
   const subOptions = isExpense
     ? ["All", ...(EXPENSE_SUBCATEGORIES[selectedMainCategory] || [])]
     : ["All", ...(INCOME_SUBCATEGORIES[selectedIncomeMainCategory] || [])];
+
+  const requestDelete = (transaction, type) => {
+    setPendingDelete({
+      id: transaction._id,
+      type,
+      title: transaction.title,
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    const { id, type } = pendingDelete;
+    if (type === "income") {
+      await onDeleteIncome?.(id);
+    } else {
+      await onDeleteExpense?.(id);
+    }
+    setPendingDelete(null);
+  };
 
   return (
     <div className="sw-panel p-5 sm:p-6 w-full h-full min-h-[28rem] xl:min-h-0 flex flex-col overflow-hidden">
@@ -262,13 +300,32 @@ const Transactions = ({
       <TransactionList
         grouped={isExpense ? groupedExpenses : groupedIncomes}
         type={isExpense ? "expense" : "income"}
-        onDelete={isExpense ? onDeleteExpense : onDeleteIncome}
+        onEdit={isExpense ? onEditExpense : onEditIncome}
+        onDelete={(transaction) =>
+          requestDelete(transaction, isExpense ? "expense" : "income")
+        }
+        editWindowMs={editWindowMs}
         emptyTitle={isExpense ? "No expenses yet" : "No income yet"}
         emptyDescription={
           isExpense
             ? "Tap + to record your first expense"
             : "Tap + to record your first income"
         }
+      />
+
+      <ConfirmModal
+        open={Boolean(pendingDelete)}
+        title={`Delete this ${pendingDelete?.type || "item"}?`}
+        description={
+          pendingDelete?.title
+            ? `"${pendingDelete.title}" will be removed permanently.`
+            : "This will be removed permanently."
+        }
+        confirmLabel="Delete"
+        cancelLabel="Cancel"
+        tone="danger"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
       />
     </div>
   );

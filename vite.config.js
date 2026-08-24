@@ -22,6 +22,11 @@ export default defineConfig(({ command, mode }) => {
       // Hidden maps keep debugging possible without shipping sources publicly
       sourcemap: mode === "production" ? "hidden" : true,
     },
+    server: {
+      fs: {
+        allow: [".."],
+      },
+    },
   };
 
   // Dev / preview server port comes strictly from .env (no default)
@@ -30,7 +35,7 @@ export default defineConfig(({ command, mode }) => {
     if (Number.isNaN(port)) {
       throw new Error("VITE_PORT must be a valid number");
     }
-    config.server = { port, strictPort: true };
+    config.server = { port, strictPort: true, fs: { allow: [".."] } };
     config.preview = { port };
   }
 

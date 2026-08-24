@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { APP_NAME } from "../constants/app";
+import BrandLogo from "../components/BrandLogo";
+import { APP_TAGLINE } from "../constants/app";
 
 function AuthLayout({
   title,
@@ -13,10 +14,10 @@ function AuthLayout({
     <div className="sw-page flex items-center justify-center p-6">
       <div className="relative z-10 w-full max-w-md animate-fade-up">
         <div className="text-center mb-8">
-          <p className="font-display text-4xl sm:text-5xl font-bold tracking-tight text-sage-600">
-            {APP_NAME}
+          <BrandLogo variant="vertical" className="rounded-2xl shadow-panel" />
+          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted">
+            {APP_TAGLINE}
           </p>
-          <p className="mt-2 text-sm text-ink-muted">Know where every rupee goes</p>
         </div>
 
         <div className="sw-panel p-8">

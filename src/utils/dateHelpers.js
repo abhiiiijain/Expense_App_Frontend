@@ -17,6 +17,19 @@ export function subDays(date, days) {
   return result;
 }
 
+/** Transactions may only be edited within this window after creation. */
+export const DEFAULT_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+export function isTransactionEditable(
+  createdAt,
+  editWindowMs = DEFAULT_EDIT_WINDOW_MS,
+  now = Date.now()
+) {
+  const created = new Date(createdAt).getTime();
+  if (!Number.isFinite(created)) return false;
+  return now - created <= editWindowMs;
+}
+
 function isToday(date) {
   return date.toDateString() === new Date().toDateString();
 }
@@ -32,6 +45,22 @@ export function formatRelativeDateLabel(date) {
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/** Date labels for the weekly chart axis (always calendar dates). */
+export function formatChartDateLabel(date) {
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+/** Full day label for chart tooltips. */
+export function formatChartDayTooltip(date) {
+  if (isToday(date)) return `Today · ${formatChartDateLabel(date)}`;
+  if (isYesterday(date)) return `Yesterday · ${formatChartDateLabel(date)}`;
+  return date.toLocaleDateString("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
 }
 
 export function groupTransactionsByDate(transactions) {

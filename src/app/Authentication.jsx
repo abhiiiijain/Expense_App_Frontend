@@ -8,23 +8,22 @@ import {
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthProvider, useAuth } from "../auth/AuthContext";
+import { AppConfigProvider } from "../config/AppConfigContext";
 import { setOnUnauthorized } from "../api/client";
 import Login from "../auth/Login";
 import Register from "../auth/Register";
 import Dashboard from "./Dashboard";
-import { APP_NAME } from "../constants/app";
+import BrandLogo from "../components/BrandLogo";
 
 function LoadingScreen() {
   return (
     <div className="sw-page flex items-center justify-center">
       <div className="relative z-10 flex flex-col items-center gap-5 animate-fade-in">
-        <div className="relative h-16 w-16">
-          <div className="absolute inset-0 rounded-full border-[3px] border-sage-200 border-t-sage-600 animate-spin" />
+        <div className="relative">
+          <BrandLogo variant="mark" className="rounded-2xl shadow-panel" />
+          <div className="absolute -inset-2 rounded-[1.25rem] border-2 border-sage-200 border-t-sage-600 animate-spin" />
         </div>
-        <div className="text-center">
-          <p className="font-display text-2xl font-bold text-sage-600">{APP_NAME}</p>
-          <p className="text-sm text-ink-muted mt-1">Getting things ready…</p>
-        </div>
+        <p className="text-sm text-ink-muted">Getting things ready…</p>
       </div>
     </div>
   );
@@ -57,10 +56,12 @@ function AuthRoutes() {
 function Authentication() {
   return (
     <AuthProvider>
-      <Router>
-        <AuthRoutes />
-        <ToastContainer theme="light" />
-      </Router>
+      <AppConfigProvider>
+        <Router>
+          <AuthRoutes />
+          <ToastContainer theme="light" />
+        </Router>
+      </AppConfigProvider>
     </AuthProvider>
   );
 }
