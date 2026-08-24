@@ -27,14 +27,14 @@ function filterByCategory(transactions, mainCategory, subcategory) {
 
 function FilterChips({ options, selected, onSelect, activeClass, inactiveClass }) {
   return (
-    <div className="mb-4 flex flex-wrap gap-2">
+    <div className="mb-3 flex flex-wrap gap-1.5">
       {options.map((option) => {
         const active = selected === option;
         return (
           <button
             key={option}
             type="button"
-            className={`${active ? activeClass : inactiveClass} text-xs font-medium px-3 py-1.5 rounded-lg transition border`}
+            className={`${active ? activeClass : inactiveClass} text-xs font-medium px-2.5 py-1 rounded-lg transition border`}
             onClick={() => onSelect(option)}
           >
             {option}
@@ -55,37 +55,43 @@ function TransactionRow({ transaction, type, onDelete }) {
   const signedAmount = isIncome ? transaction.amount : -Math.abs(transaction.amount);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-sage-50/70 transition group border border-transparent hover:border-ink/5">
-      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-sand-50 ring-1 ring-ink/5 text-lg shrink-0">
+    <div className="group relative flex items-start gap-3 rounded-xl px-2.5 py-2.5 hover:bg-sand-50 transition">
+      <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-sand-50 ring-1 ring-ink/5 text-base shrink-0 mt-0.5">
         {transaction.icon}
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="font-semibold text-ink truncate text-sm">{transaction.title}</div>
+
+      <div className="min-w-0 flex-1 pr-1">
+        <div className="font-semibold text-ink text-sm leading-snug line-clamp-2">
+          {transaction.title}
+        </div>
         {showSubtitle && (
-          <div className="text-ink-muted text-xs truncate">{subtitle}</div>
+          <div className="text-ink-muted text-xs mt-0.5 truncate">{subtitle}</div>
         )}
       </div>
-      <div
-        className={`font-bold shrink-0 tabular-nums text-sm ${
-          isIncome ? "text-emerald-700" : "text-rose-700"
-        }`}
-      >
-        {formatCurrency(signedAmount, { signed: true })}
+
+      <div className="shrink-0 flex flex-col items-end gap-1 pt-0.5">
+        <div
+          className={`font-bold tabular-nums text-sm whitespace-nowrap ${
+            isIncome ? "text-emerald-700" : "text-rose-700"
+          }`}
+        >
+          {formatCurrency(signedAmount, { signed: true })}
+        </div>
+        <button
+          type="button"
+          title={`Delete ${type}`}
+          aria-label={`Delete ${type}`}
+          className="w-7 h-7 rounded-md text-ink-muted/70 hover:text-rose-700 hover:bg-rose-50 text-xs opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 transition"
+          onClick={() => {
+            if (!onDelete) return;
+            if (window.confirm(`Delete this ${type}?`)) {
+              onDelete(transaction._id);
+            }
+          }}
+        >
+          ✕
+        </button>
       </div>
-      <button
-        type="button"
-        title={`Delete ${type}`}
-        aria-label={`Delete ${type}`}
-        className="shrink-0 w-8 h-8 rounded-lg text-ink-muted hover:text-rose-700 hover:bg-rose-50 sm:opacity-0 sm:group-hover:opacity-100 transition"
-        onClick={() => {
-          if (!onDelete) return;
-          if (window.confirm(`Delete this ${type}?`)) {
-            onDelete(transaction._id);
-          }
-        }}
-      >
-        ✕
-      </button>
     </div>
   );
 }
@@ -100,10 +106,10 @@ function TransactionList({ grouped, type, onDelete, emptyTitle, emptyDescription
   }
 
   return (
-    <div className="space-y-5 max-h-[28rem] overflow-y-auto pr-1">
+    <div className="sw-scroll flex-1 min-h-0 overflow-y-auto -mr-1 pr-2 space-y-4">
       {dates.map((date) => (
-        <div key={date}>
-          <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted mb-2 px-1 sticky top-0 bg-white/95 py-1">
+        <section key={date}>
+          <h4 className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted mb-1.5 px-2.5 sticky top-0 z-[1] bg-white/95 backdrop-blur-sm py-1.5">
             {date}
           </h4>
           <div className="space-y-0.5">
@@ -116,7 +122,7 @@ function TransactionList({ grouped, type, onDelete, emptyTitle, emptyDescription
               />
             ))}
           </div>
-        </div>
+        </section>
       ))}
     </div>
   );
@@ -163,12 +169,15 @@ const Transactions = ({
     : ["All", ...(INCOME_SUBCATEGORIES[selectedIncomeMainCategory] || [])];
 
   return (
-    <div className="sw-panel p-5 sm:p-6 w-full h-full flex flex-col">
-      <div className="mb-4">
+    <div className="sw-panel p-5 sm:p-6 w-full h-full min-h-[28rem] xl:min-h-0 flex flex-col overflow-hidden">
+      <div className="mb-3 shrink-0">
         <h3 className="font-display text-lg font-semibold text-ink">Activity</h3>
       </div>
 
-      <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-sand-100 mb-4" role="tablist">
+      <div
+        className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-sand-100 mb-3 shrink-0"
+        role="tablist"
+      >
         <button
           type="button"
           role="tab"
@@ -195,8 +204,12 @@ const Transactions = ({
         </button>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-3">
+      <div className="mb-3 shrink-0">
+        <label className="sr-only" htmlFor="activity-category-filter">
+          Filter by category
+        </label>
         <select
+          id="activity-category-filter"
           value={selectedMain}
           onChange={(e) => {
             const value = e.target.value;
@@ -208,11 +221,15 @@ const Transactions = ({
               setSelectedIncomeSubcategory("All");
             }
           }}
-          className={`border rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 w-full ${
+          className={`sw-input py-2 text-sm appearance-none bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat pr-9 ${
             isExpense
-              ? "border-rose-200 text-rose-800 focus:ring-rose-500/25"
-              : "border-emerald-200 text-emerald-800 focus:ring-emerald-500/25"
+              ? "border-rose-200 text-rose-800 focus:ring-rose-500/25 focus:border-rose-500"
+              : "border-emerald-200 text-emerald-800 focus:ring-emerald-500/25 focus:border-emerald-500"
           }`}
+          style={{
+            backgroundImage:
+              "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2364748b'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\")",
+          }}
         >
           {filterCategories.map((category) => (
             <option key={category} value={category}>
@@ -223,21 +240,23 @@ const Transactions = ({
       </div>
 
       {selectedMain !== "All" && (
-        <FilterChips
-          options={subOptions}
-          selected={selectedSub}
-          onSelect={isExpense ? setSelectedSubcategory : setSelectedIncomeSubcategory}
-          activeClass={
-            isExpense
-              ? "bg-rose-700 text-white border-rose-700"
-              : "bg-emerald-700 text-white border-emerald-700"
-          }
-          inactiveClass={
-            isExpense
-              ? "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
-              : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
-          }
-        />
+        <div className="shrink-0">
+          <FilterChips
+            options={subOptions}
+            selected={selectedSub}
+            onSelect={isExpense ? setSelectedSubcategory : setSelectedIncomeSubcategory}
+            activeClass={
+              isExpense
+                ? "bg-rose-700 text-white border-rose-700"
+                : "bg-emerald-700 text-white border-emerald-700"
+            }
+            inactiveClass={
+              isExpense
+                ? "bg-white text-rose-700 border-rose-200 hover:bg-rose-50"
+                : "bg-white text-emerald-700 border-emerald-200 hover:bg-emerald-50"
+            }
+          />
+        </div>
       )}
 
       <TransactionList

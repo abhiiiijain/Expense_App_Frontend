@@ -43,7 +43,7 @@ function OpeningBalanceModal({ open, initialValue = "", onSave, onSkip, required
       >
         <div className="px-6 py-5 border-b border-ink/5 bg-sand-50/80">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
-            Passbook setup
+            Account setup
           </p>
           <h2 id="opening-balance-title" className="font-display text-xl font-semibold text-ink mt-1">
             Opening balance

@@ -234,13 +234,16 @@ function Dashboard() {
                 <WeeklyBarChart expenses={expenses} />
               </div>
 
-              <div className="xl:col-span-2">
-                <Transactions
-                  expenses={expenses}
-                  incomes={incomes}
-                  onDeleteExpense={(id) => deleteTransaction("expense", id)}
-                  onDeleteIncome={(id) => deleteTransaction("income", id)}
-                />
+              {/* Absolute fill on xl so Activity matches left height without growing the row */}
+              <div className="xl:col-span-2 min-h-[28rem] xl:min-h-0 xl:relative">
+                <div className="xl:absolute xl:inset-0 flex">
+                  <Transactions
+                    expenses={expenses}
+                    incomes={incomes}
+                    onDeleteExpense={(id) => deleteTransaction("expense", id)}
+                    onDeleteIncome={(id) => deleteTransaction("income", id)}
+                  />
+                </div>
               </div>
             </div>
           </>

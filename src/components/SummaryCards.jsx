@@ -45,7 +45,7 @@ function SummaryCards({ expenses, incomes, openingBalance = 0, onEditOpeningBala
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
-            Passbook
+            Overview
           </p>
           <h2 className="font-display text-xl font-semibold text-ink">{monthLabel}</h2>
         </div>

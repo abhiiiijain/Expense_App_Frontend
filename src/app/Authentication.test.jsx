@@ -5,7 +5,6 @@ import Authentication from "./Authentication";
 vi.mock("../auth/authService", () => ({
   getStoredAuth: () => ({ token: null, user: null }),
   fetchMe: vi.fn(),
-  clearAuth: vi.fn(),
   logout: vi.fn(),
 }));
 

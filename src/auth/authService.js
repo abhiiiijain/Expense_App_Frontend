@@ -21,6 +21,9 @@ export function clearAuth() {
   localStorage.removeItem("user");
 }
 
+/** Alias for clearAuth — used by AuthContext logout. */
+export const logout = clearAuth;
+
 export async function login(email, password) {
   const { data } = await apiClient.post("auth/login", { email, password });
   saveAuth(data.token, data.user);
@@ -53,8 +56,4 @@ export async function updateOpeningBalance(openingBalance) {
     saveAuth(token, data);
   }
   return data;
-}
-
-export function logout() {
-  clearAuth();
 }

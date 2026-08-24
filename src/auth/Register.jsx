@@ -118,7 +118,7 @@ function Register() {
             onChange={(e) => setOpeningBalance(sanitizeAmountInput(e.target.value))}
           />
           <p className="mt-1.5 text-xs text-ink-muted">
-            Optional — use your current balance so {APP_NAME} matches your passbook.
+            Optional — use your current balance so {APP_NAME} matches your bank account.
           </p>
         </div>
 
