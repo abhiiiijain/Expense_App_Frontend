@@ -51,7 +51,13 @@ function OpeningBalanceModal({ open, initialValue = "", onSave, onSkip, required
       labelledBy="opening-balance-title"
       portal={false}
     >
-      <div className="px-6 py-5 border-b border-ink/5 bg-sand-50/80">
+      <div
+        className="px-6 py-5"
+        style={{
+          borderBottom: "1px solid var(--sw-border)",
+          background: "var(--sw-muted-bg)",
+        }}
+      >
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-muted">
           Account setup
         </p>

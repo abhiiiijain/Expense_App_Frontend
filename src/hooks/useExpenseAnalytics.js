@@ -3,43 +3,21 @@ import {
   formatChartDateLabel,
   formatChartDayTooltip,
   formatDateKey,
-  isInCurrentMonth,
+  isInMonthKey,
   subDays,
+  transactionDate,
 } from "../utils/dateHelpers";
 
-export function useCurrentMonthExpenses(expenses) {
+/** Extra client filter — safe if the API already scoped by month. */
+export function useMonthItems(items, monthKey) {
   return useMemo(
-    () => expenses.filter((expense) => isInCurrentMonth(expense.createdAt)),
-    [expenses]
+    () => items.filter((item) => isInMonthKey(transactionDate(item), monthKey)),
+    [items, monthKey]
   );
 }
 
-export function useMonthExpenseTotal(monthlyExpenses) {
-  return useMemo(
-    () => monthlyExpenses.reduce((sum, item) => sum + item.amount, 0),
-    [monthlyExpenses]
-  );
-}
-
-export function useMonthlySummary(expenses, incomes) {
-  return useMemo(() => {
-    let totalExpense = 0;
-    let totalIncome = 0;
-
-    for (const item of expenses) {
-      if (isInCurrentMonth(item.createdAt)) {
-        totalExpense += item.amount;
-      }
-    }
-
-    for (const item of incomes) {
-      if (isInCurrentMonth(item.createdAt)) {
-        totalIncome += item.amount;
-      }
-    }
-
-    return { totalExpense, totalIncome };
-  }, [expenses, incomes]);
+export function useMonthTotal(items) {
+  return useMemo(() => items.reduce((sum, item) => sum + item.amount, 0), [items]);
 }
 
 export function useCategorySums(monthlyExpenses, expenseCategoryNames) {
@@ -73,7 +51,7 @@ export function useWeeklyBarChartData(expenses, expenseCategories, expenseCatego
     );
 
     expenses.forEach((expense) => {
-      const expenseDate = new Date(expense.createdAt);
+      const expenseDate = transactionDate(expense);
       if (expenseDate < weekStart) {
         return;
       }

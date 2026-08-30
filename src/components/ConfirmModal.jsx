@@ -43,7 +43,13 @@ function ConfirmModal({
       closeOnEscape={!busy}
       labelledBy="confirm-modal-title"
     >
-      <div className="px-6 py-5 border-b border-ink/5 bg-sand-50/80">
+      <div
+        className="px-6 py-5"
+        style={{
+          borderBottom: "1px solid var(--sw-border)",
+          background: "var(--sw-muted-bg)",
+        }}
+      >
         <h2 id="confirm-modal-title" className="font-display text-lg font-semibold text-ink">
           {title}
         </h2>
@@ -57,7 +63,12 @@ function ConfirmModal({
           type="button"
           disabled={busy}
           onClick={onCancel}
-          className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-ink/10 bg-white text-ink font-semibold hover:bg-sand-50 disabled:opacity-60 transition"
+          className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl font-semibold disabled:opacity-60 transition"
+          style={{
+            background: "var(--sw-elevated)",
+            color: "var(--sw-ink)",
+            border: "1px solid var(--sw-border)",
+          }}
         >
           {cancelLabel}
         </button>

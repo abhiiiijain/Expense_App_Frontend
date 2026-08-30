@@ -9,6 +9,14 @@
       name="description"
       content="SpendWise — track expenses, income, and your monthly balance. Track • Plan • Save • Grow."
     />
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem("sw-theme");
+          document.documentElement.classList.toggle("dark", theme === "dark");
+        } catch (e) {}
+      })();
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link

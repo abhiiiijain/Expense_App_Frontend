@@ -35,14 +35,20 @@ function ModalShell({
 
   const content = (
     <div
-      className={`fixed inset-0 flex justify-center bg-ink/40 backdrop-blur-sm animate-fade-in ${alignClass}`}
+      className={`fixed inset-0 flex justify-center bg-black/40 backdrop-blur-sm animate-fade-in ${alignClass}`}
       style={{ zIndex }}
       onClick={() => {
         if (closeOnBackdrop) onClose?.();
       }}
     >
       <div
-        className={`bg-white overflow-hidden shadow-panel w-full ${MAX_WIDTH[maxWidth]} ring-1 ring-ink/5 animate-fade-up ${radiusClass} ${panelClassName}`}
+        className={`overflow-hidden w-full ${MAX_WIDTH[maxWidth]} animate-fade-up ${radiusClass} ${panelClassName}`}
+        style={{
+          background: "var(--sw-elevated)",
+          border: "1px solid var(--sw-border)",
+          boxShadow: "0 20px 50px -20px rgba(0,0,0,0.45)",
+          color: "var(--sw-ink)",
+        }}
         role="dialog"
         aria-modal="true"
         aria-labelledby={labelledBy}

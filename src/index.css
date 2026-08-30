@@ -14,8 +14,35 @@
     display: none;
   }
 
+  :root {
+    --sw-page-from: #f4fbf7;
+    --sw-page-to: #eef5ff;
+    --sw-panel: #ffffff;
+    --sw-elevated: #ffffff;
+    --sw-muted-bg: #f1f5f9;
+    --sw-ink: #0f172a;
+    --sw-ink-soft: #1e293b;
+    --sw-ink-muted: #64748b;
+    --sw-border: rgba(15, 23, 42, 0.08);
+  }
+
+  html.dark {
+    --sw-page-from: #0b1220;
+    --sw-page-to: #111827;
+    --sw-panel: #0f172a;
+    --sw-elevated: #1e293b;
+    --sw-muted-bg: rgba(255, 255, 255, 0.06);
+    --sw-ink: #f1f5f9;
+    --sw-ink-soft: #e2e8f0;
+    --sw-ink-muted: #94a3b8;
+    --sw-border: rgba(255, 255, 255, 0.1);
+    color-scheme: dark;
+  }
+
   body {
-    @apply bg-sand-50 text-ink antialiased font-sans;
+    @apply antialiased font-sans;
+    background-color: var(--sw-page-from);
+    color: var(--sw-ink);
   }
 
   ::selection {
@@ -27,9 +54,16 @@
   .sw-page {
     @apply min-h-screen relative overflow-hidden;
     background:
-      radial-gradient(ellipse 80% 50% at 10% -10%, rgba(37, 99, 235, 0.12), transparent 55%),
-      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(59, 130, 246, 0.08), transparent 50%),
-      linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+      radial-gradient(ellipse 70% 45% at 8% -8%, rgba(22, 163, 74, 0.14), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(37, 99, 235, 0.14), transparent 50%),
+      linear-gradient(180deg, var(--sw-page-from) 0%, var(--sw-page-to) 100%);
+  }
+
+  html.dark .sw-page {
+    background:
+      radial-gradient(ellipse 80% 50% at 10% -10%, rgba(37, 99, 235, 0.18), transparent 55%),
+      radial-gradient(ellipse 60% 40% at 100% 0%, rgba(22, 163, 74, 0.1), transparent 50%),
+      linear-gradient(180deg, var(--sw-page-from) 0%, var(--sw-page-to) 100%);
   }
 
   .sw-page::before {
@@ -37,20 +71,40 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
-    opacity: 0.35;
-    background-image: radial-gradient(rgba(15, 23, 42, 0.06) 1px, transparent 1px);
+    opacity: 0.28;
+    background-image: radial-gradient(rgba(15, 23, 42, 0.05) 1px, transparent 1px);
     background-size: 22px 22px;
     mask-image: linear-gradient(180deg, black, transparent 85%);
   }
 
+  html.dark .sw-page::before {
+    opacity: 0.35;
+    background-image: radial-gradient(rgba(248, 250, 252, 0.08) 1px, transparent 1px);
+  }
+
   .sw-panel {
-    @apply bg-white/90 backdrop-blur-sm rounded-2xl shadow-panel ring-1 ring-ink/5;
+    @apply backdrop-blur-sm rounded-2xl;
+    background: var(--sw-panel);
+    border: 1px solid var(--sw-border);
+    box-shadow: 0 12px 32px -16px rgba(15, 23, 42, 0.18);
   }
 
   .sw-input {
-    @apply w-full px-3.5 py-2.5 rounded-xl border border-ink/10 bg-white text-ink
-      placeholder:text-ink-muted/50
-      focus:outline-none focus:ring-2 focus:ring-sage-600/25 focus:border-sage-600 transition;
+    @apply w-full px-3.5 py-2.5 rounded-xl font-sans text-sm transition;
+    background: var(--sw-elevated);
+    color: var(--sw-ink);
+    border: 1px solid var(--sw-border);
+  }
+
+  .sw-input::placeholder {
+    color: var(--sw-ink-muted);
+    opacity: 0.55;
+  }
+
+  .sw-input:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
   }
 
   .sw-btn-primary {
@@ -59,7 +113,104 @@
       text-white font-semibold rounded-xl transition active:scale-[0.98];
   }
 
-  .sw-label {
-    @apply block text-sm font-medium text-ink-soft mb-1.5;
+  html.dark .sw-btn-primary:disabled {
+    @apply bg-slate-700 text-slate-400;
   }
+
+  .sw-label {
+    @apply block text-sm font-medium mb-1.5;
+    color: var(--sw-ink-soft);
+  }
+
+  .sw-menu {
+    @apply rounded-xl overflow-hidden;
+    background: var(--sw-elevated);
+    border: 1px solid var(--sw-border);
+    box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.35);
+  }
+
+  .sw-menu-header {
+    @apply px-4 py-3;
+    border-bottom: 1px solid var(--sw-border);
+    background: linear-gradient(135deg, rgba(22, 163, 74, 0.08), rgba(37, 99, 235, 0.1));
+  }
+
+  html.dark .sw-menu-header {
+    background: rgba(255, 255, 255, 0.04);
+  }
+
+  .sw-menu-item {
+    @apply w-full text-left px-4 py-2.5 text-sm font-medium transition;
+    color: var(--sw-ink);
+  }
+
+  .sw-menu-item:hover {
+    background: var(--sw-muted-bg);
+  }
+
+  .sw-chip {
+    @apply inline-flex items-center gap-1 rounded-xl p-1;
+    background: var(--sw-elevated);
+    border: 1px solid var(--sw-border);
+    box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+  }
+
+  .sw-card {
+    @apply relative overflow-hidden rounded-2xl p-5 transition;
+    background: var(--sw-elevated);
+    border: 1px solid var(--sw-border);
+    box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+  }
+
+  .sw-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px -16px rgba(15, 23, 42, 0.2);
+  }
+
+  .sw-segment {
+    @apply grid grid-cols-2 gap-1 p-1 rounded-xl;
+    background: var(--sw-muted-bg);
+  }
+
+  .sw-segment-btn {
+    @apply rounded-lg px-3 py-2 text-sm font-semibold transition;
+    color: var(--sw-ink-muted);
+  }
+
+  .sw-segment-btn:hover {
+    color: var(--sw-ink);
+  }
+
+  .sw-segment-btn[aria-selected="true"],
+  .sw-segment-btn.is-active {
+    background: var(--sw-elevated);
+    color: var(--sw-ink);
+    box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.12);
+  }
+}
+
+/*
+  Force readable ink text in dark mode. Tailwind `ink` stays navy for overlays
+  (bg-ink/40); these overrides only touch text color utilities.
+*/
+html.dark .text-ink {
+  color: #f1f5f9 !important;
+}
+html.dark .text-ink-soft {
+  color: #e2e8f0 !important;
+}
+html.dark .text-ink-muted {
+  color: #94a3b8 !important;
+}
+html.dark .text-ink-muted\/70 {
+  color: rgb(148 163 184 / 0.7) !important;
+}
+html.dark .hover\:text-ink:hover {
+  color: #f1f5f9 !important;
+}
+html.dark .hover\:text-ink-soft:hover {
+  color: #e2e8f0 !important;
+}
+html.dark .placeholder\:text-ink-muted\/50::placeholder {
+  color: rgb(148 163 184 / 0.5) !important;
 }

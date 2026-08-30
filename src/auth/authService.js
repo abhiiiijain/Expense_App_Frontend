@@ -54,3 +54,13 @@ export async function updateOpeningBalance(openingBalance) {
   }
   return data;
 }
+
+export async function changePassword(currentPassword, newPassword) {
+  await apiClient.put("auth/password", { currentPassword, newPassword });
+}
+
+export async function changeEmail(email, password) {
+  const { data } = await apiClient.put("auth/email", { email, password });
+  saveAuth(data.token, data.user);
+  return data.user;
+}

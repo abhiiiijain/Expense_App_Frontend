@@ -3,11 +3,6 @@ import DoughnutChart from "./DoughnutChart";
 import CardHeader from "./CardHeader";
 import ModalShell from "../ModalShell";
 import { useCategories } from "../../config/AppConfigContext";
-import {
-  useCategorySums,
-  useCurrentMonthExpenses,
-  useMonthExpenseTotal,
-} from "../../hooks/useExpenseAnalytics";
 import { formatCurrency, formatPercent } from "../../utils/formatCurrency";
 import { clampBarWidth } from "../../utils/clampBarWidth";
 
@@ -47,7 +42,7 @@ function CategoryDetailPopover({ detail, monthTotal, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="w-8 h-8 rounded-lg text-ink-muted hover:text-ink hover:bg-white flex items-center justify-center shrink-0"
+            className="w-8 h-8 rounded-lg text-ink-muted hover:text-ink hover:bg-white dark:hover:bg-white/10 flex items-center justify-center shrink-0"
             aria-label="Close"
           >
             ✕
@@ -75,7 +70,7 @@ function CategoryDetailPopover({ detail, monthTotal, onClose }) {
                   </p>
                 </div>
               </div>
-              <div className="mt-2 h-1 rounded-full bg-sand-100 overflow-hidden">
+              <div className="mt-2 h-1 rounded-full overflow-hidden bg-[var(--sw-muted-bg)]">
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
@@ -105,7 +100,9 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
         onClick={() => hasBreakdown && onOpen({ category, amount, subcategories })}
         aria-haspopup="dialog"
         className={`w-full text-left rounded-xl px-2 py-2 transition ${
-          hasBreakdown ? "hover:bg-sand-50 cursor-pointer" : "cursor-default"
+          hasBreakdown
+            ? "hover:bg-[var(--sw-muted-bg)] cursor-pointer"
+            : "cursor-default"
         }`}
       >
         <div className="flex items-center gap-2 min-w-0">
@@ -118,7 +115,7 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
             {category.name}
           </span>
           {hasBreakdown && (
-            <span className="text-[10px] font-medium text-sage-700 shrink-0">View</span>
+            <span className="text-[10px] font-medium text-sage-700 dark:text-sage-200 shrink-0">View</span>
           )}
           <span className="text-[11px] text-ink-muted tabular-nums shrink-0">
             {formatPercent(pct)}
@@ -127,7 +124,7 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
             {formatCurrency(amount)}
           </span>
         </div>
-        <div className="mt-1.5 ml-4 h-1 rounded-full bg-sand-100 overflow-hidden">
+        <div className="mt-1.5 ml-4 h-1 rounded-full overflow-hidden bg-[var(--sw-muted-bg)]">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
@@ -141,16 +138,10 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
   );
 }
 
-function CategoryBreakdown({ expenses }) {
+function CategoryBreakdown({ expenses: monthlyExpenses, categorySums, monthTotal }) {
   const [showEmpty, setShowEmpty] = useState(false);
   const [selectedDetail, setSelectedDetail] = useState(null);
   const { expenseCategories } = useCategories();
-  const monthlyExpenses = useCurrentMonthExpenses(expenses);
-  const categorySums = useCategorySums(
-    monthlyExpenses,
-    expenseCategories.map((category) => category.name)
-  );
-  const monthTotal = useMonthExpenseTotal(monthlyExpenses);
 
   const { activeCategories, emptyCategories, hasSpending, subcategoryBreakdowns } =
     useMemo(() => {
@@ -221,11 +212,11 @@ function CategoryBreakdown({ expenses }) {
             </ul>
 
             {emptyCategories.length > 0 && (
-              <div className="pt-2 mt-2 border-t border-ink/5">
+              <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--sw-border)" }}>
                 <button
                   type="button"
                   onClick={() => setShowEmpty((v) => !v)}
-                  className="text-[11px] font-medium text-sage-700 hover:text-sage-600"
+                  className="text-[11px] font-medium text-sage-700 hover:text-sage-600 dark:text-blue-300 dark:hover:text-blue-200"
                 >
                   {showEmpty
                     ? "Hide unused categories"
@@ -237,7 +228,11 @@ function CategoryBreakdown({ expenses }) {
                     {emptyCategories.map((category) => (
                       <span
                         key={category.name}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-muted bg-sand-50 ring-1 ring-ink/5"
+                        className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-muted"
+                        style={{
+                          background: "var(--sw-muted-bg)",
+                          border: "1px solid var(--sw-border)",
+                        }}
                       >
                         <span
                           className="w-1.5 h-1.5 rounded-full opacity-50"

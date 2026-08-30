@@ -44,13 +44,14 @@ function PasswordInput({
         {label}
       </label>
       <div
-        className={`relative flex items-center rounded-xl border bg-white transition ${
+        className={`relative flex items-center rounded-xl border transition ${
           focused
             ? "border-sage-600 ring-2 ring-sage-600/25"
-            : "border-ink/10 hover:border-ink/20"
+            : "border-[var(--sw-border)]"
         }`}
+        style={{ background: "var(--sw-elevated)" }}
       >
-        <span className="pointer-events-none absolute left-3.5 flex h-5 w-5 items-center justify-center text-ink-muted/70">
+        <span className="pointer-events-none absolute left-3.5 flex h-5 w-5 items-center justify-center text-ink-muted">
           <LockIcon className="h-5 w-5" />
         </span>
 
@@ -64,13 +65,13 @@ function PasswordInput({
           placeholder={placeholder}
           required={required}
           autoComplete={autoComplete}
-          className="w-full bg-transparent py-2.5 pl-11 pr-11 text-sm text-ink placeholder:text-ink-muted/50 focus:outline-none"
+          className="w-full bg-transparent py-2.5 pl-11 pr-11 text-sm text-ink placeholder:text-ink-muted focus:outline-none"
         />
 
         <button
           type="button"
           onClick={() => setShowPassword((visible) => !visible)}
-          className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted hover:bg-sage-50 hover:text-ink-soft focus:outline-none focus:ring-2 focus:ring-sage-600/30"
+          className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-ink-muted hover:bg-[var(--sw-muted-bg)] hover:text-ink-soft focus:outline-none focus:ring-2 focus:ring-sage-600/30"
           aria-label={showPassword ? "Hide password" : "Show password"}
         >
           {showPassword ? (

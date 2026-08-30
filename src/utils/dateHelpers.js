@@ -1,15 +1,40 @@
-import {
-  DEFAULT_EDIT_WINDOW_MS,
-  formatEditWindowLabel,
-  editWindowToastMessage,
-} from "./formatEditWindow.js";
+import { DEFAULT_EDIT_WINDOW_MS } from "./formatEditWindow.js";
 
-export { DEFAULT_EDIT_WINDOW_MS, formatEditWindowLabel, editWindowToastMessage };
+/** Prefer business date; fall back to createdAt for older rows. */
+export function transactionDate(transaction) {
+  return new Date(transaction?.date || transaction?.createdAt);
+}
 
-export function isInCurrentMonth(dateInput) {
+export function getMonthKey(dateInput = new Date()) {
   const date = new Date(dateInput);
-  const now = new Date();
-  return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+export function shiftMonthKey(monthKey, delta) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const date = new Date(year, month - 1 + delta, 1);
+  return getMonthKey(date);
+}
+
+export function formatMonthLabel(monthKey) {
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleString("en-IN", {
+    month: "long",
+    year: "numeric",
+  });
+}
+
+export function isInMonthKey(dateInput, monthKey) {
+  return getMonthKey(dateInput) === monthKey;
+}
+
+/** HTML date input value (YYYY-MM-DD) in local time. */
+export function toDateInputValue(dateInput = new Date()) {
+  const date = new Date(dateInput);
+  if (!Number.isFinite(date.getTime())) return toDateInputValue(new Date());
+  return formatDateKey(date);
 }
 
 export function formatDateKey(date) {
@@ -45,19 +70,16 @@ function isYesterday(date) {
   return date.toDateString() === yesterday.toDateString();
 }
 
-/** Shared relative date label for charts and transaction groups. */
 export function formatRelativeDateLabel(date) {
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-/** Date labels for the weekly chart axis (always calendar dates). */
 export function formatChartDateLabel(date) {
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }
 
-/** Full day label for chart tooltips. */
 export function formatChartDayTooltip(date) {
   if (isToday(date)) return `Today · ${formatChartDateLabel(date)}`;
   if (isYesterday(date)) return `Yesterday · ${formatChartDateLabel(date)}`;
@@ -70,7 +92,7 @@ export function formatChartDayTooltip(date) {
 
 export function groupTransactionsByDate(transactions) {
   return transactions.reduce((groups, transaction) => {
-    const dateKey = formatRelativeDateLabel(new Date(transaction.createdAt));
+    const dateKey = formatRelativeDateLabel(transactionDate(transaction));
 
     if (!groups[dateKey]) {
       groups[dateKey] = [];

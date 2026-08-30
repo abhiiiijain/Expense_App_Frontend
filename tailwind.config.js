@@ -1,9 +1,12 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx,ts,tsx}"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
+        // Fixed light-mode ink. Dark mode text is handled via .dark overrides in index.css
+        // so bg-ink/* overlays never invert to light.
         ink: {
           DEFAULT: "#0f172a",
           soft: "#1e293b",
@@ -16,9 +19,12 @@ export default {
           600: "#2563eb",
           700: "#1d4ed8",
         },
-        sand: {
-          50: "#f8fafc",
-          100: "#f1f5f9",
+        leaf: {
+          50: "#f0fdf4",
+          100: "#dcfce7",
+          500: "#22c55e",
+          600: "#16a34a",
+          700: "#15803d",
         },
       },
       fontFamily: {

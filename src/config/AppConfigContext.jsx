@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { DEFAULT_CONFIG, fetchAppConfig } from "../api/config";
 
 const AppConfigContext = createContext(DEFAULT_CONFIG);
@@ -14,9 +14,7 @@ export function AppConfigProvider({ children }) {
       });
   }, []);
 
-  const value = useMemo(() => config, [config]);
-
-  return <AppConfigContext.Provider value={value}>{children}</AppConfigContext.Provider>;
+  return <AppConfigContext.Provider value={config}>{children}</AppConfigContext.Provider>;
 }
 
 export function useAppConfig() {
@@ -33,7 +31,6 @@ export function useCategories() {
     incomeCategoryNames,
     incomeSubcategories,
     incomeFilterCategories,
-    loaded,
   } = useAppConfig();
 
   return {
@@ -44,6 +41,5 @@ export function useCategories() {
     incomeCategoryNames,
     incomeSubcategories,
     incomeFilterCategories,
-    loaded,
   };
 }

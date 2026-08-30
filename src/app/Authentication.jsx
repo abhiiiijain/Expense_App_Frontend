@@ -9,6 +9,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthProvider, useAuth } from "../auth/AuthContext";
 import { AppConfigProvider } from "../config/AppConfigContext";
+import { ThemeProvider, useTheme } from "../config/ThemeContext";
 import { setOnUnauthorized } from "../api/client";
 import Login from "../auth/Login";
 import Register from "../auth/Register";
@@ -65,16 +66,26 @@ function AuthRoutes() {
   );
 }
 
+function ThemedApp() {
+  const { theme } = useTheme();
+
+  return (
+    <Router>
+      <AuthRoutes />
+      <ToastContainer theme={theme === "dark" ? "dark" : "light"} />
+    </Router>
+  );
+}
+
 function Authentication() {
   return (
-    <AuthProvider>
-      <AppConfigProvider>
-        <Router>
-          <AuthRoutes />
-          <ToastContainer theme="light" />
-        </Router>
-      </AppConfigProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppConfigProvider>
+          <ThemedApp />
+        </AppConfigProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

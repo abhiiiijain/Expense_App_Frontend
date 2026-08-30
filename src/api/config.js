@@ -6,7 +6,6 @@ import { DEFAULT_EDIT_WINDOW_MS } from "../utils/formatEditWindow";
 export const DEFAULT_CONFIG = {
   editWindowMs: DEFAULT_EDIT_WINDOW_MS,
   ...buildCategoriesFromTaxonomy(fallbackTaxonomy),
-  loaded: false,
 };
 
 export async function fetchAppConfig() {
@@ -21,6 +20,5 @@ export async function fetchAppConfig() {
   return {
     editWindowMs: data.editWindowMs ?? DEFAULT_CONFIG.editWindowMs,
     ...buildCategoriesFromTaxonomy(taxonomy),
-    loaded: true,
   };
 }
