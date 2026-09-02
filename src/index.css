@@ -40,6 +40,11 @@
   }
 
   body {
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+      env(safe-area-inset-left);
+  }
+
+  body {
     @apply antialiased font-sans;
     background-color: var(--sw-page-from);
     color: var(--sw-ink);

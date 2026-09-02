@@ -24,6 +24,7 @@ import { useAuth } from "../auth/AuthContext";
 import { useAppConfig, useCategories } from "../config/AppConfigContext";
 import { useTheme } from "../config/ThemeContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
+import { usePwaInstall } from "../hooks/usePwaInstall";
 import { useCategorySums, useMonthItems, useMonthTotal } from "../hooks/useExpenseAnalytics";
 import BrandLogo from "../components/BrandLogo";
 import {
@@ -51,6 +52,7 @@ function Dashboard() {
   const { user, setUser, logout } = useAuth();
   const { editWindowMs } = useAppConfig();
   const { theme, toggleTheme } = useTheme();
+  const { canInstall, install } = usePwaInstall();
   const { expenseCategoryNames } = useCategories();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
@@ -535,6 +537,19 @@ function Dashboard() {
                     >
                       Export CSV
                     </button>
+                    {canInstall && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={async () => {
+                          setShowMenu(false);
+                          await install();
+                        }}
+                        className="sw-menu-item"
+                      >
+                        Install app
+                      </button>
+                    )}
                     <button
                       type="button"
                       role="menuitem"
