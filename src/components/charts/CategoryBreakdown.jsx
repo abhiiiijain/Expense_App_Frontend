@@ -5,12 +5,15 @@ import ModalShell from "../ModalShell";
 import { useCategories } from "../../config/AppConfigContext";
 import { formatCurrency, formatPercent } from "../../utils/formatCurrency";
 import { clampBarWidth } from "../../utils/clampBarWidth";
+import { AccountTotalsBar } from "../AccountBreakdown";
+import { useAccountExpenseTotals } from "../../hooks/useAccountExpenseTotals";
+import EmptyState from "../EmptyState";
 
-function CategoryDetailPopover({ detail, monthTotal, onClose }) {
+function CategoryDetailPopover({ detail, onClose }) {
   if (!detail) return null;
 
-  const { category, amount, subcategories } = detail;
-  const categoryPct = monthTotal > 0 ? (amount / monthTotal) * 100 : 0;
+  const { category, amount, subcategories, scopeTotal = amount } = detail;
+  const categoryPct = scopeTotal > 0 ? (amount / scopeTotal) * 100 : 0;
 
   return (
     <ModalShell
@@ -97,7 +100,9 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
     <li>
       <button
         type="button"
-        onClick={() => hasBreakdown && onOpen({ category, amount, subcategories })}
+        onClick={() =>
+          hasBreakdown && onOpen({ category, amount, subcategories, scopeTotal: monthTotal })
+        }
         aria-haspopup="dialog"
         className={`w-full text-left rounded-xl px-2 py-2 transition ${
           hasBreakdown
@@ -138,41 +143,114 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
   );
 }
 
-function CategoryBreakdown({ expenses: monthlyExpenses, categorySums, monthTotal }) {
+function MonthCategoryContent({
+  expenses,
+  categorySums,
+  monthTotal,
+  onSelectDetail,
+}) {
   const [showEmpty, setShowEmpty] = useState(false);
-  const [selectedDetail, setSelectedDetail] = useState(null);
   const { expenseCategories } = useCategories();
 
-  const { activeCategories, emptyCategories, hasSpending, subcategoryBreakdowns } =
-    useMemo(() => {
-      const active = expenseCategories.filter((c) => categorySums[c.name] > 0).sort(
-        (a, b) => categorySums[b.name] - categorySums[a.name]
-      );
-      const empty = expenseCategories.filter((c) => !categorySums[c.name]);
+  const { activeCategories, emptyCategories, subcategoryBreakdowns } = useMemo(() => {
+    const active = expenseCategories
+      .filter((c) => categorySums[c.name] > 0)
+      .sort((a, b) => categorySums[b.name] - categorySums[a.name]);
+    const empty = expenseCategories.filter((c) => !categorySums[c.name]);
 
-      const breakdownMap = {};
-      monthlyExpenses.forEach((expense) => {
-        if (!breakdownMap[expense.category]) breakdownMap[expense.category] = {};
-        breakdownMap[expense.category][expense.subcategory] =
-          (breakdownMap[expense.category][expense.subcategory] || 0) + expense.amount;
-      });
+    const breakdownMap = {};
+    expenses.forEach((expense) => {
+      if (!breakdownMap[expense.category]) breakdownMap[expense.category] = {};
+      breakdownMap[expense.category][expense.subcategory] =
+        (breakdownMap[expense.category][expense.subcategory] || 0) + expense.amount;
+    });
 
-      const subcategoryBreakdowns = Object.fromEntries(
-        Object.entries(breakdownMap).map(([category, subs]) => [
-          category,
-          Object.entries(subs)
-            .map(([name, amount]) => ({ name, amount }))
-            .sort((a, b) => b.amount - a.amount),
-        ])
-      );
+    const subcategoryBreakdowns = Object.fromEntries(
+      Object.entries(breakdownMap).map(([category, subs]) => [
+        category,
+        Object.entries(subs)
+          .map(([name, amount]) => ({ name, amount }))
+          .sort((a, b) => b.amount - a.amount),
+      ])
+    );
 
-      return {
-        activeCategories: active,
-        emptyCategories: empty,
-        hasSpending: active.length > 0,
-        subcategoryBreakdowns,
-      };
-    }, [monthlyExpenses, categorySums, expenseCategories]);
+    return {
+      activeCategories: active,
+      emptyCategories: empty,
+      subcategoryBreakdowns,
+    };
+  }, [expenses, categorySums, expenseCategories]);
+
+  return (
+    <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-5">
+      <div className="w-full max-w-[220px] mx-auto lg:mx-0 lg:w-[200px] shrink-0">
+        <DoughnutChart categorySums={categorySums} />
+      </div>
+
+      <div className="w-full lg:flex-1 min-w-0">
+        <ul className="space-y-1">
+          {activeCategories.map((category) => (
+            <CategoryRow
+              key={category.name}
+              category={category}
+              amount={categorySums[category.name]}
+              monthTotal={monthTotal}
+              subcategories={subcategoryBreakdowns[category.name] || []}
+              onOpen={onSelectDetail}
+            />
+          ))}
+        </ul>
+
+        {emptyCategories.length > 0 && (
+          <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--sw-border)" }}>
+            <button
+              type="button"
+              onClick={() => setShowEmpty((v) => !v)}
+              className="text-[11px] font-medium text-sage-700 hover:text-sage-600 dark:text-blue-300 dark:hover:text-blue-200"
+            >
+              {showEmpty
+                ? "Hide unused categories"
+                : `Show ${emptyCategories.length} unused categories`}
+            </button>
+
+            {showEmpty && (
+              <div className="mt-2 flex flex-wrap gap-1 animate-fade-in">
+                {emptyCategories.map((category) => (
+                  <span
+                    key={category.name}
+                    className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-muted"
+                    style={{
+                      background: "var(--sw-muted-bg)",
+                      border: "1px solid var(--sw-border)",
+                    }}
+                  >
+                    <span
+                      className="w-1.5 h-1.5 rounded-full opacity-50"
+                      style={{ backgroundColor: category.color }}
+                      aria-hidden="true"
+                    />
+                    {category.name}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CategoryBreakdown({
+  expenses: monthlyExpenses,
+  categorySums,
+  monthTotal,
+  accounts = [],
+  accountFilter = "all",
+}) {
+  const [selectedDetail, setSelectedDetail] = useState(null);
+  const accountTotals = useAccountExpenseTotals(monthlyExpenses, accounts, accountFilter);
+  const hasSpending = monthTotal > 0;
 
   return (
     <div className="sw-panel p-4 sm:p-5 w-full">
@@ -190,69 +268,26 @@ function CategoryBreakdown({ expenses: monthlyExpenses, categorySums, monthTotal
       </CardHeader>
 
       {!hasSpending ? (
-        <DoughnutChart categorySums={categorySums} />
+        <EmptyState
+          title="No spending this month"
+          description="Your expenses for this month will appear here"
+        />
       ) : (
-        <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-6">
-          <div className="w-full max-w-[280px] mx-auto lg:mx-0 lg:w-[260px] shrink-0">
-            <DoughnutChart categorySums={categorySums} />
-          </div>
-
-          <div className="w-full lg:flex-1 min-w-0">
-            <ul className="space-y-1">
-              {activeCategories.map((category) => (
-                <CategoryRow
-                  key={category.name}
-                  category={category}
-                  amount={categorySums[category.name]}
-                  monthTotal={monthTotal}
-                  subcategories={subcategoryBreakdowns[category.name] || []}
-                  onOpen={setSelectedDetail}
-                />
-              ))}
-            </ul>
-
-            {emptyCategories.length > 0 && (
-              <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--sw-border)" }}>
-                <button
-                  type="button"
-                  onClick={() => setShowEmpty((v) => !v)}
-                  className="text-[11px] font-medium text-sage-700 hover:text-sage-600 dark:text-blue-300 dark:hover:text-blue-200"
-                >
-                  {showEmpty
-                    ? "Hide unused categories"
-                    : `Show ${emptyCategories.length} unused categories`}
-                </button>
-
-                {showEmpty && (
-                  <div className="mt-2 flex flex-wrap gap-1 animate-fade-in">
-                    {emptyCategories.map((category) => (
-                      <span
-                        key={category.name}
-                        className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-muted"
-                        style={{
-                          background: "var(--sw-muted-bg)",
-                          border: "1px solid var(--sw-border)",
-                        }}
-                      >
-                        <span
-                          className="w-1.5 h-1.5 rounded-full opacity-50"
-                          style={{ backgroundColor: category.color }}
-                          aria-hidden="true"
-                        />
-                        {category.name}
-                      </span>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <>
+          {accountTotals.length > 0 && (
+            <AccountTotalsBar totals={accountTotals} tone="expense" className="mb-4" />
+          )}
+          <MonthCategoryContent
+            expenses={monthlyExpenses}
+            categorySums={categorySums}
+            monthTotal={monthTotal}
+            onSelectDetail={setSelectedDetail}
+          />
+        </>
       )}
 
       <CategoryDetailPopover
         detail={selectedDetail}
-        monthTotal={monthTotal}
         onClose={() => setSelectedDetail(null)}
       />
     </div>

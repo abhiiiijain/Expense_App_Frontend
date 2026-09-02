@@ -6,8 +6,9 @@ import AddExpenseModal from "../components/AddExpenseModal";
 import OpeningBalanceModal from "../components/OpeningBalanceModal";
 import CategoryBreakdown from "../components/charts/CategoryBreakdown";
 import WeeklyBarChart from "../components/charts/WeeklyBarChart";
+import DailyBreakdown from "../components/charts/DailyBreakdown";
 import MonthSwitcher from "../components/MonthSwitcher";
-import BudgetPanel from "../components/BudgetPanel";
+import BudgetModal from "../components/BudgetModal";
 import AccountsModal from "../components/AccountsModal";
 import ProfileSecurityModal from "../components/ProfileSecurityModal";
 import OnboardingChecklist from "../components/OnboardingChecklist";
@@ -29,6 +30,7 @@ import { useCategorySums, useMonthItems, useMonthTotal } from "../hooks/useExpen
 import BrandLogo from "../components/BrandLogo";
 import {
   getMonthKey,
+  isInMonthKey,
   isTransactionEditable,
   formatMonthLabel,
   transactionDate,
@@ -44,8 +46,9 @@ function getGreeting() {
   return "Good evening";
 }
 
-function belongsToMonth(transaction, monthKey) {
-  return getMonthKey(transactionDate(transaction)) === monthKey;
+function filterByAccount(items, accountFilter) {
+  if (accountFilter === "all") return items;
+  return items.filter((tx) => String(tx.accountId) === String(accountFilter));
 }
 
 function Dashboard() {
@@ -72,8 +75,8 @@ function Dashboard() {
   const [openingModalOpen, setOpeningModalOpen] = useState(false);
   const [openingModalRequired, setOpeningModalRequired] = useState(false);
   const [accountsOpen, setAccountsOpen] = useState(false);
+  const [budgetsOpen, setBudgetsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
-  const [hasBudget, setHasBudget] = useState(false);
 
   const defaultAccountId =
     accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "";
@@ -93,18 +96,12 @@ function Dashboard() {
   );
 
   const scopedExpenses = useMemo(
-    () =>
-      accountFilter === "all"
-        ? expenses
-        : expenses.filter((tx) => String(tx.accountId) === String(accountFilter)),
+    () => filterByAccount(expenses, accountFilter),
     [accountFilter, expenses]
   );
 
   const scopedIncomes = useMemo(
-    () =>
-      accountFilter === "all"
-        ? incomes
-        : incomes.filter((tx) => String(tx.accountId) === String(accountFilter)),
+    () => filterByAccount(incomes, accountFilter),
     [accountFilter, incomes]
   );
 
@@ -121,10 +118,7 @@ function Dashboard() {
   );
 
   const scopedRecentExpenses = useMemo(
-    () =>
-      accountFilter === "all"
-        ? recentExpenses
-        : recentExpenses.filter((tx) => String(tx.accountId) === String(accountFilter)),
+    () => filterByAccount(recentExpenses, accountFilter),
     [accountFilter, recentExpenses]
   );
 
@@ -132,13 +126,10 @@ function Dashboard() {
   const monthExpenses = useMonthItems(scopedExpenses, monthKey);
   const monthIncomes = useMonthItems(scopedIncomes, monthKey);
   const monthTransfers = useMonthItems(scopedTransfers, monthKey);
+
   const categorySums = useCategorySums(monthExpenses, expenseCategoryNames);
   const monthExpenseTotal = useMonthTotal(monthExpenses);
   const monthIncomeTotal = useMonthTotal(monthIncomes);
-
-  const handleBudgetsChange = useCallback((rows) => {
-    setHasBudget(rows.some((b) => (b.amount || 0) > 0));
-  }, []);
 
   const loadAccounts = useCallback(async () => {
     const { accounts: rows, hasTransactions: flag } = await fetchAccounts();
@@ -294,7 +285,7 @@ function Dashboard() {
       if (transaction.type === "transfer") {
         try {
           const data = await createTransfer(transaction);
-          if (belongsToMonth(data, monthKey)) {
+          if (isInMonthKey(transactionDate(data), monthKey)) {
             setTransfers((prev) => [data, ...prev]);
           }
           setHasTransactions(true);
@@ -314,7 +305,7 @@ function Dashboard() {
         if (existing?._id) {
           const data = await updateTransactionRequest(type, existing._id, transaction);
           const updater = (prev) => {
-            if (!belongsToMonth(data, monthKey)) {
+            if (!isInMonthKey(transactionDate(data), monthKey)) {
               return prev.filter((item) => item._id !== existing._id);
             }
             return prev.map((item) => (item._id === existing._id ? data : item));
@@ -329,7 +320,7 @@ function Dashboard() {
         }
 
         const data = await createTransaction(transaction);
-        if (belongsToMonth(data, monthKey)) {
+        if (isInMonthKey(transactionDate(data), monthKey)) {
           if (isIncome) setIncomes((prev) => [data, ...prev]);
           else setExpenses((prev) => [data, ...prev]);
         }
@@ -520,6 +511,17 @@ function Dashboard() {
                       role="menuitem"
                       onClick={() => {
                         setShowMenu(false);
+                        setBudgetsOpen(true);
+                      }}
+                      className="sw-menu-item"
+                    >
+                      Category budgets
+                    </button>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setShowMenu(false);
                         setSecurityOpen(true);
                       }}
                       className="sw-menu-item"
@@ -586,28 +588,36 @@ function Dashboard() {
           <>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <MonthSwitcher monthKey={monthKey} onChange={setMonthKey} />
-              {accounts.length > 0 && (
-                <select
-                  className="sw-input !w-auto py-2 text-sm"
-                  value={accountFilter}
-                  onChange={(e) => setAccountFilter(e.target.value)}
-                  aria-label="Filter by account"
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBudgetsOpen(true)}
+                  className="sw-input !w-auto py-2 text-sm font-medium text-sage-700 dark:text-sage-200 hover:bg-[var(--sw-muted-bg)]"
                 >
-                  <option value="all">All accounts</option>
-                  {accounts.map((account) => (
-                    <option key={account.id} value={account.id}>
-                      {account.name}
-                    </option>
-                  ))}
-                </select>
-              )}
+                  Budgets
+                </button>
+                {accounts.length > 0 && (
+                  <select
+                    className="sw-input !w-auto py-2 text-sm"
+                    value={accountFilter}
+                    onChange={(e) => setAccountFilter(e.target.value)}
+                    aria-label="Filter by account"
+                  >
+                    <option value="all">All accounts</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             </div>
 
             <OnboardingChecklist
               hasOpeningBalance={Boolean(user.openingBalanceSet)}
               hasAccount={accounts.length > 0}
               hasTransaction={hasTransactions}
-              hasBudget={hasBudget}
               onOpenAccounts={() => setAccountsOpen(true)}
               onAddTransaction={openAddModal}
             />
@@ -639,13 +649,20 @@ function Dashboard() {
                   expenses={monthExpenses}
                   categorySums={categorySums}
                   monthTotal={monthExpenseTotal}
+                  accounts={accounts}
+                  accountFilter={accountFilter}
                 />
-                <BudgetPanel
+                <WeeklyBarChart
+                  expenses={scopedRecentExpenses}
+                  accounts={accounts}
+                  accountFilter={accountFilter}
+                />
+                <DailyBreakdown
+                  expenses={monthExpenses}
                   monthKey={monthKey}
-                  categorySums={categorySums}
-                  onBudgetsChange={handleBudgetsChange}
+                  accounts={accounts}
+                  accountFilter={accountFilter}
                 />
-                <WeeklyBarChart expenses={scopedRecentExpenses} />
               </div>
 
               <div className="xl:col-span-2 min-h-[28rem] xl:min-h-0 xl:relative">
@@ -655,6 +672,7 @@ function Dashboard() {
                     incomes={monthIncomes}
                     transfers={monthTransfers}
                     accounts={accounts}
+                    accountFilter={accountFilter}
                     onEditExpense={openEditExpense}
                     onEditIncome={openEditIncome}
                     onDeleteExpense={deleteExpense}
@@ -692,6 +710,13 @@ function Dashboard() {
         onClose={() => setAccountsOpen(false)}
         accounts={accounts}
         onChanged={loadAccounts}
+      />
+
+      <BudgetModal
+        open={budgetsOpen}
+        onClose={() => setBudgetsOpen(false)}
+        monthKey={monthKey}
+        categorySums={categorySums}
       />
 
       <ProfileSecurityModal open={securityOpen} onClose={() => setSecurityOpen(false)} />

@@ -70,7 +70,7 @@ function isYesterday(date) {
   return date.toDateString() === yesterday.toDateString();
 }
 
-export function formatRelativeDateLabel(date) {
+function formatRelativeDateLabel(date) {
   if (isToday(date)) return "Today";
   if (isYesterday(date)) return "Yesterday";
   return date.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
@@ -88,6 +88,22 @@ export function formatChartDayTooltip(date) {
     day: "numeric",
     month: "short",
   });
+}
+
+export function shiftDateKey(dateKey, deltaDays) {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, month - 1, day);
+  date.setDate(date.getDate() + deltaDays);
+  return formatDateKey(date);
+}
+
+export function getDayBoundsForMonth(monthKey) {
+  const [year, month] = monthKey.split("-").map(Number);
+  const minDayKey = formatDateKey(new Date(year, month - 1, 1));
+  const todayKey = formatDateKey(new Date());
+  const lastOfMonth = formatDateKey(new Date(year, month, 0));
+  const maxDayKey = getMonthKey(new Date()) === monthKey ? todayKey : lastOfMonth;
+  return { minDayKey, maxDayKey };
 }
 
 export function groupTransactionsByDate(transactions) {

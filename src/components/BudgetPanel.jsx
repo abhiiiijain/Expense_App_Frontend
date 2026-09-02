@@ -5,7 +5,7 @@ import { formatCurrency, formatPercent } from "../utils/formatCurrency";
 import { toast } from "react-toastify";
 import CardHeader from "./charts/CardHeader";
 
-function BudgetPanel({ monthKey, categorySums, onBudgetsChange }) {
+function BudgetPanel({ monthKey, categorySums, embedded = false }) {
   const { expenseCategories } = useCategories();
   const [budgets, setBudgets] = useState([]);
   const [editing, setEditing] = useState(null);
@@ -17,10 +17,7 @@ function BudgetPanel({ monthKey, categorySums, onBudgetsChange }) {
     setLoading(true);
     fetchBudgets(monthKey)
       .then((rows) => {
-        if (!cancelled) {
-          setBudgets(rows);
-          onBudgetsChange?.(rows);
-        }
+        if (!cancelled) setBudgets(rows);
       })
       .catch(() => {
         if (!cancelled) toast.error("Could not load budgets");
@@ -31,7 +28,7 @@ function BudgetPanel({ monthKey, categorySums, onBudgetsChange }) {
     return () => {
       cancelled = true;
     };
-  }, [monthKey, onBudgetsChange]);
+  }, [monthKey]);
 
   const byCategory = useMemo(
     () => Object.fromEntries(budgets.map((b) => [b.category, b.amount])),
@@ -63,7 +60,6 @@ function BudgetPanel({ monthKey, categorySums, onBudgetsChange }) {
       setBudgets((prev) => {
         const next = prev.filter((b) => b.category !== categoryName);
         if (!result.removed) next.push(result);
-        onBudgetsChange?.(next);
         return next;
       });
       setEditing(null);
@@ -73,9 +69,9 @@ function BudgetPanel({ monthKey, categorySums, onBudgetsChange }) {
     }
   };
 
-  return (
-    <div className="sw-panel p-4 sm:p-5 w-full">
-      <CardHeader eyebrow="Plan" title="Category budgets" className="mb-3" />
+  const body = (
+    <>
+      {!embedded && <CardHeader eyebrow="Plan" title="Category budgets" className="mb-3" />}
       {loading ? (
         <div className="h-24 animate-pulse rounded-xl bg-[var(--sw-muted-bg)]" />
       ) : withBudget.length === 0 ? (
@@ -84,7 +80,7 @@ function BudgetPanel({ monthKey, categorySums, onBudgetsChange }) {
         </p>
       ) : null}
 
-      <ul className="mt-2 space-y-2 max-h-72 overflow-y-auto">
+      <ul className={`space-y-2 overflow-y-auto ${embedded ? "max-h-[min(52vh,24rem)] flex-1 min-h-0" : "mt-2 max-h-72"}`}>
         {(withBudget.length ? withBudget : rows.slice(0, 6)).map(
           ({ category, spent, budget, pct }) => (
             <li key={category.name} className="rounded-xl px-2 py-2 hover:bg-[var(--sw-muted-bg)]">
@@ -157,14 +153,18 @@ function BudgetPanel({ monthKey, categorySums, onBudgetsChange }) {
       {withBudget.length > 0 && withBudget.length < rows.length && (
         <button
           type="button"
-          className="mt-3 text-xs font-medium text-sage-700"
+          className="mt-3 text-xs font-medium text-sage-700 dark:text-sage-200"
           onClick={() => startEdit(rows.find((r) => !r.budget)?.category.name, 0)}
         >
           + Add another category budget
         </button>
       )}
-    </div>
+    </>
   );
+
+  if (embedded) return body;
+
+  return <div className="sw-panel p-4 sm:p-5 w-full">{body}</div>;
 }
 
 export default BudgetPanel;

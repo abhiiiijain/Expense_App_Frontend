@@ -5,6 +5,8 @@ import { useWeeklyBarChartData } from "../../hooks/useExpenseAnalytics";
 import { formatChartAxis, formatCurrency } from "../../utils/formatCurrency";
 import EmptyState from "../EmptyState";
 import CardHeader from "./CardHeader";
+import { AccountTotalsBar } from "../AccountBreakdown";
+import { useAccountExpenseTotals } from "../../hooks/useAccountExpenseTotals";
 
 function useIsNarrow(breakpoint = 640) {
   const [isNarrow, setIsNarrow] = useState(() =>
@@ -22,16 +24,8 @@ function useIsNarrow(breakpoint = 640) {
   return isNarrow;
 }
 
-function WeeklyBarChart({ expenses }) {
-  const isNarrow = useIsNarrow();
-  const { expenseCategories, expenseCategoryNames } = useCategories();
-  const { labels, tooltipLabels, datasets, weekTotal, hasData } = useWeeklyBarChartData(
-    expenses,
-    expenseCategories,
-    expenseCategoryNames
-  );
-
-  const options = useMemo(
+function useBarChartOptions(isNarrow, tooltipLabels) {
+  return useMemo(
     () => ({
       responsive: true,
       maintainAspectRatio: false,
@@ -111,6 +105,27 @@ function WeeklyBarChart({ expenses }) {
     }),
     [isNarrow, tooltipLabels]
   );
+}
+
+function WeeklyChartBlock({ labels, tooltipLabels, datasets }) {
+  const isNarrow = useIsNarrow();
+  const options = useBarChartOptions(isNarrow, tooltipLabels);
+
+  return (
+    <div className="w-full -mx-1 sm:mx-0 h-60 sm:h-72">
+      <Bar data={{ labels, datasets }} options={options} />
+    </div>
+  );
+}
+
+function WeeklyBarChart({ expenses, accounts = [], accountFilter = "all" }) {
+  const { expenseCategories, expenseCategoryNames } = useCategories();
+  const accountTotals = useAccountExpenseTotals(expenses, accounts, accountFilter);
+  const { labels, tooltipLabels, datasets, weekTotal, hasData } = useWeeklyBarChartData(
+    expenses,
+    expenseCategories,
+    expenseCategoryNames
+  );
 
   return (
     <div className="sw-panel p-4 sm:p-6 w-full">
@@ -133,9 +148,16 @@ function WeeklyBarChart({ expenses }) {
           description="Your last 7 days of expenses will appear here"
         />
       ) : (
-        <div className="w-full h-60 sm:h-72 -mx-1 sm:mx-0">
-          <Bar data={{ labels, datasets }} options={options} />
-        </div>
+        <>
+          {accountTotals.length > 0 && (
+            <AccountTotalsBar totals={accountTotals} tone="expense" className="mb-4" />
+          )}
+          <WeeklyChartBlock
+            labels={labels}
+            tooltipLabels={tooltipLabels}
+            datasets={datasets}
+          />
+        </>
       )}
     </div>
   );

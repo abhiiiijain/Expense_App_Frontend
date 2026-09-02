@@ -7,6 +7,11 @@ import {
 import { formatCurrency } from "../utils/formatCurrency";
 import ConfirmModal from "./ConfirmModal";
 import EmptyState from "./EmptyState";
+import {
+  AccountBadge,
+  AccountTotalsBar,
+} from "./AccountBreakdown";
+import { useAccountExpenseTotals } from "../hooks/useAccountExpenseTotals";
 
 function filterByCategory(transactions, mainCategory, subcategory) {
   if (mainCategory === "All") {
@@ -53,7 +58,15 @@ function FilterChips({ options, selected, onSelect, activeClass, inactiveClass }
   );
 }
 
-function TransactionRow({ transaction, type, onEdit, onDelete, editWindowMs }) {
+function TransactionRow({
+  transaction,
+  type,
+  onEdit,
+  onDelete,
+  editWindowMs,
+  accountName,
+  showAccountBadge,
+}) {
   const isIncome = type === "income";
   const canModify = isTransactionEditable(transaction.createdAt, editWindowMs);
   const subtitle =
@@ -81,6 +94,11 @@ function TransactionRow({ transaction, type, onEdit, onDelete, editWindowMs }) {
         </div>
         {showSubtitle && (
           <div className="text-ink-muted text-xs mt-0.5 truncate">{subtitle}</div>
+        )}
+        {showAccountBadge && accountName && (
+          <div className="mt-1">
+            <AccountBadge name={accountName} />
+          </div>
         )}
       </div>
 
@@ -167,7 +185,17 @@ function TransferRow({ transfer, accountNameById, onDelete, editWindowMs }) {
   );
 }
 
-function TransactionList({ grouped, type, onEdit, onDelete, editWindowMs, emptyTitle, emptyDescription }) {
+function TransactionList({
+  grouped,
+  type,
+  onEdit,
+  onDelete,
+  editWindowMs,
+  emptyTitle,
+  emptyDescription,
+  accountNameById,
+  showAccountBadge,
+}) {
   const dates = Object.keys(grouped);
 
   if (dates.length === 0) {
@@ -195,6 +223,8 @@ function TransactionList({ grouped, type, onEdit, onDelete, editWindowMs, emptyT
                 onEdit={onEdit}
                 onDelete={onDelete}
                 editWindowMs={editWindowMs}
+                showAccountBadge={showAccountBadge}
+                accountName={accountNameById?.[String(transaction.accountId)]}
               />
             ))}
           </div>
@@ -209,6 +239,7 @@ const Transactions = ({
   incomes = [],
   transfers = [],
   accounts = [],
+  accountFilter = "all",
   onEditExpense,
   onEditIncome,
   onDeleteExpense,
@@ -234,6 +265,8 @@ const Transactions = ({
     () => Object.fromEntries(accounts.map((a) => [String(a.id), a.name])),
     [accounts]
   );
+
+  const showAccountBreakdown = accountFilter === "all" && accounts.length > 1;
 
   const filteredExpenses = useMemo(() => {
     if (tab !== "expense") return [];
@@ -261,6 +294,20 @@ const Transactions = ({
       return `${from} ${to} ${tx.note || ""}`.toLowerCase().includes(q);
     });
   }, [tab, transfers, search, accountNameById]);
+
+  const expenseTotalsByAccount = useAccountExpenseTotals(
+    filteredExpenses,
+    accounts,
+    accountFilter,
+    showAccountBreakdown && tab === "expense"
+  );
+
+  const incomeTotalsByAccount = useAccountExpenseTotals(
+    filteredIncomes,
+    accounts,
+    accountFilter,
+    showAccountBreakdown && tab === "income"
+  );
 
   const groupedExpenses = useMemo(
     () => (tab === "expense" ? groupTransactionsByDate(filteredExpenses) : {}),
@@ -424,6 +471,13 @@ const Transactions = ({
         </div>
       )}
 
+      {showAccountBreakdown && isExpense && (
+        <AccountTotalsBar totals={expenseTotalsByAccount} tone="expense" />
+      )}
+      {showAccountBreakdown && isIncome && (
+        <AccountTotalsBar totals={incomeTotalsByAccount} tone="income" />
+      )}
+
       {isTransfer ? (
         Object.keys(groupedTransfers).length === 0 ? (
           <EmptyState
@@ -467,6 +521,8 @@ const Transactions = ({
             requestDelete(transaction, isExpense ? "expense" : "income")
           }
           editWindowMs={editWindowMs}
+          accountNameById={accountNameById}
+          showAccountBadge={showAccountBreakdown}
           emptyTitle={isExpense ? "No expenses yet" : "No income yet"}
           emptyDescription={
             isExpense
