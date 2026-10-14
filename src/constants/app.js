@@ -1,3 +1,5 @@
+export const PIN_LENGTH = 4;
+
 export const APP_NAME = "SpendWise";
 export const APP_TAGLINE = "TRACK • PLAN • SAVE • GROW";
 

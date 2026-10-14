@@ -1,4 +1,5 @@
 import { apiClient } from "../api/client";
+import { setAppSession } from "./appSession";
 
 export function getStoredAuth() {
   try {
@@ -16,9 +17,17 @@ function saveAuth(token, user) {
   localStorage.setItem("user", JSON.stringify(user));
 }
 
+export function persistUser(user) {
+  const { token } = getStoredAuth();
+  if (token && user) {
+    saveAuth(token, user);
+  }
+}
+
 export function clearAuth() {
   localStorage.removeItem("token");
   localStorage.removeItem("user");
+  setAppSession(null);
 }
 
 export async function login(email, password) {
@@ -48,10 +57,7 @@ export async function fetchMe() {
 
 export async function updateOpeningBalance(openingBalance) {
   const { data } = await apiClient.put("auth/opening-balance", { openingBalance });
-  const { token } = getStoredAuth();
-  if (token) {
-    saveAuth(token, data);
-  }
+  persistUser(data);
   return data;
 }
 
@@ -63,4 +69,28 @@ export async function changeEmail(email, password) {
   const { data } = await apiClient.put("auth/email", { email, password });
   saveAuth(data.token, data.user);
   return data.user;
+}
+
+export async function setupPin(pin) {
+  const { data } = await apiClient.post("auth/pin", { pin });
+  return data;
+}
+
+export async function verifyPin(pin) {
+  const { data } = await apiClient.post("auth/pin/verify", { pin });
+  return data.appSession;
+}
+
+export async function refreshAppSession() {
+  const { data } = await apiClient.post("auth/pin/refresh");
+  return data.appSession;
+}
+
+export async function changePin(currentPin, pin) {
+  await apiClient.put("auth/pin", { currentPin, pin });
+}
+
+export async function resetPin(password, pin) {
+  const { data } = await apiClient.post("auth/pin/reset", { password, pin });
+  return data;
 }

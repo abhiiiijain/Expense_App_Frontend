@@ -30,12 +30,14 @@ function AuthLayout({
 
           {children}
 
-          <p className="text-center text-sm text-ink-muted mt-6">
-            {footerPrompt}{" "}
-            <Link to={footerLinkTo} className="text-sage-700 font-semibold hover:underline">
-              {footerLinkLabel}
-            </Link>
-          </p>
+          {footerLinkTo ? (
+            <p className="text-center text-sm text-ink-muted mt-6">
+              {footerPrompt}{" "}
+              <Link to={footerLinkTo} className="text-sage-700 font-semibold hover:underline">
+                {footerLinkLabel}
+              </Link>
+            </p>
+          ) : null}
         </div>
       </div>
     </div>

@@ -8,6 +8,8 @@ import {
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthProvider, useAuth } from "../auth/AuthContext";
+import { AppLockProvider, useAppLock } from "../auth/AppLockContext";
+import PinLock from "../auth/PinLock";
 import { AppConfigProvider } from "../config/AppConfigContext";
 import { ThemeProvider, useTheme } from "../config/ThemeContext";
 import { setOnUnauthorized } from "../api/client";
@@ -33,6 +35,7 @@ function LoadingScreen() {
 
 function AuthRoutes() {
   const { user, loading, logout } = useAuth();
+  const { unlocked } = useAppLock();
 
   useEffect(() => {
     setOnUnauthorized(logout);
@@ -53,12 +56,16 @@ function AuthRoutes() {
       <Route
         path="/app"
         element={
-          user ? (
+          !user ? (
+            <Navigate to="/login" replace />
+          ) : !user.pinSet ? (
+            <PinLock mode="setup" />
+          ) : !unlocked ? (
+            <PinLock mode="unlock" />
+          ) : (
             <Suspense fallback={<LoadingScreen />}>
               <Dashboard />
             </Suspense>
-          ) : (
-            <Navigate to="/login" replace />
           )
         }
       />
@@ -81,9 +88,11 @@ function Authentication() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppConfigProvider>
-          <ThemedApp />
-        </AppConfigProvider>
+        <AppLockProvider>
+          <AppConfigProvider>
+            <ThemedApp />
+          </AppConfigProvider>
+        </AppLockProvider>
       </AuthProvider>
     </ThemeProvider>
   );
