@@ -14,6 +14,10 @@ const VARIANTS = {
     src: LOGO.mark,
     className: "h-14 w-14 sm:h-16 sm:w-16 object-contain",
   },
+  lock: {
+    src: LOGO.mark,
+    className: "h-12 w-12 object-contain mx-auto rounded-xl shadow-panel",
+  },
 };
 
 function BrandLogo({ variant = "horizontal", className = "", alt = APP_NAME }) {

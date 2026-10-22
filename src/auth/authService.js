@@ -94,3 +94,28 @@ export async function resetPin(password, pin) {
   const { data } = await apiClient.post("auth/pin/reset", { password, pin });
   return data;
 }
+
+export async function beginWebAuthnRegistration() {
+  const { data } = await apiClient.post("auth/webauthn/register/options");
+  return data;
+}
+
+export async function finishWebAuthnRegistration(credential) {
+  const { data } = await apiClient.post("auth/webauthn/register", credential);
+  return data;
+}
+
+export async function beginWebAuthnAuthentication() {
+  const { data } = await apiClient.post("auth/webauthn/authenticate/options");
+  return data;
+}
+
+export async function finishWebAuthnAuthentication(credential) {
+  const { data } = await apiClient.post("auth/webauthn/authenticate", credential);
+  return data.appSession;
+}
+
+export async function removeWebAuthnCredentials() {
+  const { data } = await apiClient.delete("auth/webauthn");
+  return data;
+}

@@ -43,10 +43,10 @@ export function AppLockProvider({ children }) {
     };
   }, [lock]);
 
-  const hasSession = Boolean(session);
+  const unlocked = Boolean(user && session);
 
   useEffect(() => {
-    if (!hasSession || !user) return undefined;
+    if (!unlocked) return undefined;
 
     const generation = getAppSessionGeneration();
     const timer = window.setInterval(async () => {
@@ -63,14 +63,9 @@ export function AppLockProvider({ children }) {
     }, REFRESH_MS);
 
     return () => window.clearInterval(timer);
-  }, [hasSession, user, lock]);
+  }, [unlocked, lock]);
 
-  const value = useMemo(
-    () => ({
-      unlocked: Boolean(user && session),
-    }),
-    [user, session]
-  );
+  const value = useMemo(() => ({ unlocked }), [unlocked]);
 
   return <AppLockContext.Provider value={value}>{children}</AppLockContext.Provider>;
 }

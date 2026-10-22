@@ -12,6 +12,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@simplewebauthn/browser": "^14.0.0",
     "axios": "^1.7.9",
     "chart.js": "^4.4.8",
     "chartjs-plugin-datalabels": "^2.2.0",

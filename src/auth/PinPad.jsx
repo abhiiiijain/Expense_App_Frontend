@@ -10,6 +10,12 @@ function PinPad({ onComplete, disabled = false, error = "", onEdit }) {
   onCompleteRef.current = onComplete;
   onEditRef.current = onEdit;
 
+  const deleteDigit = useCallback(() => {
+    if (disabled) return;
+    onEditRef.current?.();
+    setDigits((current) => current.slice(0, -1));
+  }, [disabled]);
+
   const appendDigit = useCallback((key) => {
     if (disabled || !key) return;
     onEditRef.current?.();
@@ -36,19 +42,17 @@ function PinPad({ onComplete, disabled = false, error = "", onEdit }) {
         appendDigit(event.key);
       } else if (event.key === "Backspace") {
         event.preventDefault();
-        setDigits((current) => current.slice(0, -1));
+        deleteDigit();
       }
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [appendDigit, disabled]);
+  }, [appendDigit, deleteDigit, disabled]);
 
   const press = (key) => {
-    if (disabled) return;
     if (key === "del") {
-      onEditRef.current?.();
-      setDigits((current) => current.slice(0, -1));
+      deleteDigit();
       return;
     }
     appendDigit(key);
@@ -56,11 +60,11 @@ function PinPad({ onComplete, disabled = false, error = "", onEdit }) {
 
   return (
     <div>
-      <div className="mb-2 flex justify-center gap-3" aria-hidden="true">
+      <div className="mb-2 flex justify-center gap-2.5" aria-hidden="true">
         {Array.from({ length: PIN_LENGTH }, (_, index) => (
           <span
             key={index}
-            className={`h-3.5 w-3.5 rounded-full transition ${
+            className={`h-3 w-3 rounded-full transition ${
               index < digits.length ? "bg-sage-600" : "bg-slate-300 dark:bg-slate-600"
             }`}
           />
@@ -69,14 +73,10 @@ function PinPad({ onComplete, disabled = false, error = "", onEdit }) {
       <p className="sr-only" role="status">
         {digits.length} of {PIN_LENGTH} digits entered
       </p>
-      {error ? (
-        <p className="mb-5 min-h-5 text-center text-sm text-red-600" role="alert">
-          {error}
-        </p>
-      ) : (
-        <div className="mb-5 min-h-5" />
-      )}
-      <div className="grid grid-cols-3 gap-3">
+      <p className="mb-2 h-5 text-center text-xs text-red-600" role="alert">
+        {error}
+      </p>
+      <div className="grid grid-cols-3 gap-2">
         {KEYS.map((key) =>
           key === "" ? (
             <span key="spacer" />
@@ -86,7 +86,7 @@ function PinPad({ onComplete, disabled = false, error = "", onEdit }) {
               type="button"
               disabled={disabled}
               onClick={() => press(key)}
-              className="flex h-14 items-center justify-center rounded-2xl text-xl font-semibold text-ink transition active:scale-95 disabled:opacity-50"
+              className="flex h-12 items-center justify-center rounded-xl text-lg font-semibold text-ink transition active:scale-95 disabled:opacity-50"
               style={{ background: "var(--sw-muted-bg)" }}
               aria-label={key === "del" ? "Delete digit" : key}
             >

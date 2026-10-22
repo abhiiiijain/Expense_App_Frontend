@@ -1,17 +1,30 @@
 import { useEffect, useState } from "react";
 import ModalShell from "./ModalShell";
-import { changeEmail, changePassword, changePin } from "../auth/authService";
+import {
+  changeEmail,
+  changePassword,
+  changePin,
+  persistUser,
+  beginWebAuthnRegistration,
+  finishWebAuthnRegistration,
+  removeWebAuthnCredentials,
+} from "../auth/authService";
+import {
+  createDeviceCredential,
+  biometricErrorMessage,
+  deviceUnlockAvailable,
+} from "../auth/biometric";
 import { useAuth } from "../auth/AuthContext";
 import PasswordInput from "../auth/PasswordInput";
 import { toast } from "react-toastify";
-import { PIN_LENGTH } from "../constants/app";
+import { PIN_LENGTH, PIN_PATTERN } from "../constants/app";
 
 function digitsOnly(value) {
   return value.replace(/\D/g, "").slice(0, PIN_LENGTH);
 }
 
 function isPin(value) {
-  return new RegExp(`^\\d{${PIN_LENGTH}}$`).test(value);
+  return PIN_PATTERN.test(value);
 }
 
 function PinField({ id, label, value, onChange }) {
@@ -45,6 +58,7 @@ function ProfileSecurityModal({ open, onClose }) {
   const [currentPin, setCurrentPin] = useState("");
   const [nextPin, setNextPin] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deviceReady, setDeviceReady] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -57,6 +71,17 @@ function ProfileSecurityModal({ open, onClose }) {
       setNextPin("");
     }
   }, [open, user?.email]);
+
+  useEffect(() => {
+    if (!open || tab !== "pin") return undefined;
+    let cancelled = false;
+    deviceUnlockAvailable().then((available) => {
+      if (!cancelled) setDeviceReady(available);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, tab]);
 
   const saveEmail = async (e) => {
     e.preventDefault();
@@ -82,6 +107,43 @@ function ProfileSecurityModal({ open, onClose }) {
       onClose?.();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Could not update password");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const rememberBiometric = (enabled) => {
+    setUser((current) => {
+      const next = current ? { ...current, biometricEnabled: enabled } : current;
+      if (next) persistUser(next);
+      return next;
+    });
+  };
+
+  const enableBiometric = async () => {
+    try {
+      setBusy(true);
+      const options = await beginWebAuthnRegistration();
+      const credential = await createDeviceCredential(options);
+      await finishWebAuthnRegistration(credential);
+      rememberBiometric(true);
+      toast.success("Fingerprint or Face ID enabled", { position: "top-center" });
+    } catch (error) {
+      const message = biometricErrorMessage(error, "Could not enable fingerprint or Face ID");
+      if (message) toast.error(message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const disableBiometric = async () => {
+    try {
+      setBusy(true);
+      await removeWebAuthnCredentials();
+      rememberBiometric(false);
+      toast.success("Device unlock removed", { position: "top-center" });
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Could not remove device unlock");
     } finally {
       setBusy(false);
     }
@@ -156,6 +218,23 @@ function ProfileSecurityModal({ open, onClose }) {
             <button type="submit" disabled={busy} className="sw-btn-primary">
               {busy ? "Saving…" : "Update PIN"}
             </button>
+            {deviceReady ? (
+              <div className="pt-3" style={{ borderTop: "1px solid var(--sw-border)" }}>
+                <p className="sw-label">Device unlock</p>
+                <p className="mb-3 text-sm text-ink-muted">
+                  Use this phone or computer’s fingerprint or Face ID instead of the PIN.
+                </p>
+                {user?.biometricEnabled ? (
+                  <button type="button" disabled={busy} className="sw-btn-primary" onClick={disableBiometric}>
+                    {busy ? "Saving…" : "Turn off fingerprint or Face ID"}
+                  </button>
+                ) : (
+                  <button type="button" disabled={busy} className="sw-btn-primary" onClick={enableBiometric}>
+                    {busy ? "Waiting…" : "Enable fingerprint or Face ID"}
+                  </button>
+                )}
+              </div>
+            ) : null}
           </form>
         ) : tab === "email" ? (
           <form onSubmit={saveEmail} className="space-y-3">

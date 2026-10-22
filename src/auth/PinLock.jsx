@@ -1,15 +1,40 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "react-toastify";
 import { useAuth } from "./AuthContext";
 import { beginPinSubmit, endPinSubmit, setAppSession } from "./appSession";
-import { persistUser, resetPin, setupPin, verifyPin } from "./authService";
+import {
+  persistUser,
+  resetPin,
+  setupPin,
+  verifyPin,
+  beginWebAuthnAuthentication,
+  finishWebAuthnAuthentication,
+} from "./authService";
+import { assertDeviceCredential, biometricErrorMessage, deviceUnlockAvailable } from "./biometric";
 import AuthLayout from "./AuthLayout";
 import PasswordInput from "./PasswordInput";
 import PinPad from "./PinPad";
 import LoadingSpinner from "../components/LoadingSpinner";
 
 function errorMessage(error, fallback) {
-  return error?.response?.data?.message || fallback;
+  return error?.response?.data?.message || error?.message || fallback;
+}
+
+const TITLES = {
+  create: "Create a PIN",
+  confirm: "Confirm your PIN",
+  "reset-password": "Reset PIN",
+  "reset-pin": "Choose a new PIN",
+  "reset-confirm": "Confirm new PIN",
+  enter: "Enter your PIN",
+};
+
+function FingerprintIcon({ className }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 11.5v4.25m0-8.5a4.25 4.25 0 014.25 4.25M7.75 11.25A4.25 4.25 0 0112 7m5.25 8.25c0 2.9-2.35 5.25-5.25 5.25S6.75 18.15 6.75 15.25m9.5-7.5A6.75 6.75 0 0012 4.5a6.75 6.75 0 00-6.75 6.75" />
+    </svg>
+  );
 }
 
 function PinLock({ mode }) {
@@ -20,6 +45,7 @@ function PinLock({ mode }) {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [padKey, setPadKey] = useState(0);
+  const [deviceReady, setDeviceReady] = useState(false);
 
   const resetPad = useCallback(() => setPadKey((value) => value + 1), []);
 
@@ -94,24 +120,68 @@ function PinLock({ mode }) {
     [finishPinEntry, unlockWith]
   );
 
-  const handleUnlock = useCallback(
-    async (pin) => {
+  const runUnlock = useCallback(
+    async (work, onError) => {
       if (!beginPinSubmit()) return;
       try {
         setBusy(true);
         setError("");
-        const token = await verifyPin(pin);
-        setAppSession(token);
+        await work();
       } catch (err) {
-        setError(errorMessage(err, "Incorrect PIN"));
-        resetPad();
+        onError(err);
       } finally {
         setBusy(false);
         endPinSubmit();
       }
     },
-    [resetPad]
+    []
   );
+
+  const handleUnlock = useCallback(
+    (pin) =>
+      runUnlock(
+        async () => {
+          setAppSession(await verifyPin(pin));
+        },
+        (err) => {
+          setError(errorMessage(err, "Incorrect PIN"));
+          resetPad();
+        }
+      ),
+    [resetPad, runUnlock]
+  );
+
+  const handleBiometricUnlock = useCallback(
+    () =>
+      runUnlock(
+        async () => {
+          const options = await beginWebAuthnAuthentication();
+          const assertion = await assertDeviceCredential(options);
+          setAppSession(await finishWebAuthnAuthentication(assertion));
+        },
+        (err) => {
+          const message = biometricErrorMessage(err, "Fingerprint or Face ID did not work");
+          if (message) setError(message);
+        }
+      ),
+    [runUnlock]
+  );
+
+  useEffect(() => {
+    if (mode !== "unlock" || !user?.biometricEnabled) {
+      setDeviceReady(false);
+      return undefined;
+    }
+    let cancelled = false;
+    deviceUnlockAvailable().then((available) => {
+      if (!cancelled) setDeviceReady(available);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mode, user?.biometricEnabled]);
+
+  const showBiometric = mode === "unlock" && phase === "enter" && deviceReady && user?.biometricEnabled;
 
   const handleResetPin = useCallback(
     (pin) =>
@@ -124,31 +194,20 @@ function PinLock({ mode }) {
     [finishPinEntry, password, unlockWith]
   );
 
-  const title =
-    phase === "create"
-      ? "Create a PIN"
-      : phase === "confirm"
-        ? "Confirm your PIN"
-        : phase === "reset-password"
-          ? "Reset PIN"
-          : phase === "reset-pin"
-            ? "Choose a new PIN"
-            : phase === "reset-confirm"
-              ? "Confirm new PIN"
-              : "Enter your PIN";
+  const title = TITLES[phase] || TITLES.enter;
 
   const subtitle =
     mode === "setup"
       ? "SpendWise asks for this PIN whenever you switch away or close the app."
       : phase.startsWith("reset")
         ? "Confirm with your account password, then choose a new 4-digit PIN."
-        : `Welcome back${user?.firstName ? `, ${user.firstName}` : ""}. This screen locks when you leave the app.`;
+        : `Welcome back${user?.firstName ? `, ${user.firstName}` : ""}`;
 
   const onComplete = mode === "setup" ? handleSetup : phase.startsWith("reset") ? handleResetPin : handleUnlock;
   const showPad = phase !== "reset-password";
 
   return (
-    <AuthLayout title={title} subtitle={subtitle}>
+    <AuthLayout compact title={title} subtitle={subtitle}>
       {phase === "reset-password" ? (
         <form
           className="space-y-4"
@@ -156,7 +215,6 @@ function PinLock({ mode }) {
             event.preventDefault();
             setError("");
             setPhase("reset-pin");
-            resetPad();
           }}
         >
           <PasswordInput
@@ -198,13 +256,20 @@ function PinLock({ mode }) {
         />
       ) : null}
 
-      {busy ? (
-        <div className="mt-4 flex justify-center text-sage-700">
-          <LoadingSpinner />
-        </div>
+      {showBiometric ? (
+        <button
+          type="button"
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold text-sage-700 transition disabled:opacity-50"
+          style={{ background: "var(--sw-muted-bg)" }}
+          onClick={handleBiometricUnlock}
+          disabled={busy}
+        >
+          {busy ? <LoadingSpinner className="h-4 w-4" /> : <FingerprintIcon className="h-4 w-4" />}
+          Use fingerprint or Face ID
+        </button>
       ) : null}
 
-      <div className="mt-6 flex items-center justify-between text-sm">
+      <div className="mt-4 flex items-center justify-between text-sm">
         {mode === "unlock" && phase === "enter" ? (
           <button
             type="button"
