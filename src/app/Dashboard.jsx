@@ -26,17 +26,22 @@ import { useAppConfig, useCategories } from "../config/AppConfigContext";
 import { useTheme } from "../config/ThemeContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { usePwaInstall } from "../hooks/usePwaInstall";
-import { useCategorySums, useMonthItems, useMonthTotal } from "../hooks/useExpenseAnalytics";
+import {
+  useCategorySums,
+  useMonthItems,
+  useMonthTotal,
+  useRecentItems,
+} from "../hooks/useExpenseAnalytics";
+import MonthlySpendList from "../components/charts/MonthlySpendList";
 import BrandLogo from "../components/BrandLogo";
 import {
   getMonthKey,
-  isInMonthKey,
   isTransactionEditable,
   formatMonthLabel,
-  transactionDate,
 } from "../utils/dateHelpers";
 import { editWindowToastMessage } from "../utils/formatEditWindow";
 import { buildTransactionsCsv } from "../utils/exportCsv";
+import { filterByCategory } from "../utils/filterTransactions";
 import { toast } from "react-toastify";
 
 function getGreeting() {
@@ -62,14 +67,13 @@ function Dashboard() {
   const [expenses, setExpenses] = useState([]);
   const [incomes, setIncomes] = useState([]);
   const [transfers, setTransfers] = useState([]);
-  const [recentExpenses, setRecentExpenses] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [hasTransactions, setHasTransactions] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [metaReady, setMetaReady] = useState(false);
-  const [monthReady, setMonthReady] = useState(false);
   const [monthKey, setMonthKey] = useState(() => getMonthKey());
   const [accountFilter, setAccountFilter] = useState("all");
+  const [expenseCategory, setExpenseCategory] = useState("All");
+  const [expenseSubcategory, setExpenseSubcategory] = useState("All");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [openingModalOpen, setOpeningModalOpen] = useState(false);
@@ -117,19 +121,29 @@ function Dashboard() {
     [accountFilter, transfers]
   );
 
-  const scopedRecentExpenses = useMemo(
-    () => filterByAccount(recentExpenses, accountFilter),
-    [accountFilter, recentExpenses]
+  const overviewExpenses = useMemo(
+    () => filterByCategory(scopedExpenses, expenseCategory, expenseSubcategory),
+    [scopedExpenses, expenseCategory, expenseSubcategory]
   );
 
-  // API scopes by month; client filter is a rollout safety net.
   const monthExpenses = useMonthItems(scopedExpenses, monthKey);
   const monthIncomes = useMonthItems(scopedIncomes, monthKey);
   const monthTransfers = useMonthItems(scopedTransfers, monthKey);
+  const overviewMonthExpenses = useMonthItems(overviewExpenses, monthKey);
+  const overviewWeekExpenses = useRecentItems(overviewExpenses, 7);
 
-  const categorySums = useCategorySums(monthExpenses, expenseCategoryNames);
+  const categorySums = useCategorySums(overviewMonthExpenses, expenseCategoryNames);
+  const monthBudgetSums = useCategorySums(monthExpenses, expenseCategoryNames);
   const monthExpenseTotal = useMonthTotal(monthExpenses);
+  const overviewMonthExpenseTotal = useMonthTotal(overviewMonthExpenses);
   const monthIncomeTotal = useMonthTotal(monthIncomes);
+  const lifetimeCategorySums = useCategorySums(overviewExpenses, expenseCategoryNames);
+  const lifetimeExpenseTotal = useMonthTotal(overviewExpenses);
+
+  const handleExpenseCategoryChange = useCallback((category) => {
+    setExpenseCategory(category);
+    setExpenseSubcategory("All");
+  }, []);
 
   const loadAccounts = useCallback(async () => {
     const { accounts: rows, hasTransactions: flag } = await fetchAccounts();
@@ -138,50 +152,26 @@ function Dashboard() {
     return rows;
   }, []);
 
-  const loadMonthTransactions = useCallback(async (key) => {
-    const data = await fetchTransactions({ month: key });
+  const loadTransactions = useCallback(async () => {
+    const data = await fetchTransactions();
     setExpenses(data.expenses);
     setIncomes(data.incomes);
     setTransfers(data.transfers || []);
   }, []);
 
-  const loadRecentExpenses = useCallback(async () => {
-    const data = await fetchTransactions({ days: 7 });
-    setRecentExpenses(data.expenses);
-  }, []);
-
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadRecentExpenses(), loadAccounts()])
+    Promise.all([loadTransactions(), loadAccounts()])
       .catch(() => {
         if (!cancelled) toast.error("Could not load dashboard data");
       })
       .finally(() => {
-        if (!cancelled) setMetaReady(true);
+        if (!cancelled) setLoading(false);
       });
     return () => {
       cancelled = true;
     };
-  }, [loadRecentExpenses, loadAccounts]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setMonthReady(false);
-    loadMonthTransactions(monthKey)
-      .catch(() => {
-        if (!cancelled) toast.error("Could not load month transactions");
-      })
-      .finally(() => {
-        if (!cancelled) setMonthReady(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [monthKey, loadMonthTransactions]);
-
-  useEffect(() => {
-    if (metaReady && monthReady) setLoading(false);
-  }, [metaReady, monthReady]);
+  }, [loadTransactions, loadAccounts]);
 
   useEffect(() => {
     if (user && user.openingBalanceSet === false) {
@@ -285,9 +275,7 @@ function Dashboard() {
       if (transaction.type === "transfer") {
         try {
           const data = await createTransfer(transaction);
-          if (isInMonthKey(transactionDate(data), monthKey)) {
-            setTransfers((prev) => [data, ...prev]);
-          }
+          setTransfers((prev) => [data, ...prev]);
           setHasTransactions(true);
           toast.success("Transfer recorded", { position: "top-center" });
           await loadAccounts();
@@ -304,30 +292,24 @@ function Dashboard() {
       try {
         if (existing?._id) {
           const data = await updateTransactionRequest(type, existing._id, transaction);
-          const updater = (prev) => {
-            if (!isInMonthKey(transactionDate(data), monthKey)) {
-              return prev.filter((item) => item._id !== existing._id);
-            }
-            return prev.map((item) => (item._id === existing._id ? data : item));
-          };
+          const updater = (prev) =>
+            prev.map((item) => (item._id === existing._id ? data : item));
 
           if (isIncome) setIncomes(updater);
           else setExpenses(updater);
 
           toast.success("Updated", { position: "top-center" });
-          await Promise.all([loadAccounts(), loadRecentExpenses()]);
+          await loadAccounts();
           return;
         }
 
         const data = await createTransaction(transaction);
-        if (isInMonthKey(transactionDate(data), monthKey)) {
-          if (isIncome) setIncomes((prev) => [data, ...prev]);
-          else setExpenses((prev) => [data, ...prev]);
-        }
+        if (isIncome) setIncomes((prev) => [data, ...prev]);
+        else setExpenses((prev) => [data, ...prev]);
         setHasTransactions(true);
 
         toast.success(isIncome ? "Income added" : "Expense added", { position: "top-center" });
-        await Promise.all([loadAccounts(), loadRecentExpenses()]);
+        await loadAccounts();
       } catch (error) {
         toast.error(
           error?.response?.data?.message ||
@@ -336,7 +318,7 @@ function Dashboard() {
         throw error;
       }
     },
-    [loadAccounts, loadRecentExpenses, monthKey]
+    [loadAccounts]
   );
 
   const removeTransaction = useCallback(
@@ -348,7 +330,6 @@ function Dashboard() {
         } else {
           setExpenses((prev) => prev.filter((expense) => expense._id !== id));
         }
-        setRecentExpenses((prev) => prev.filter((expense) => expense._id !== id));
         toast.success("Deleted", { position: "top-center" });
         await loadAccounts();
       } catch (error) {
@@ -646,23 +627,36 @@ function Dashboard() {
             >
               <div className="flex flex-col gap-6 xl:col-span-3">
                 <CategoryBreakdown
-                  expenses={monthExpenses}
+                  expenses={overviewMonthExpenses}
                   categorySums={categorySums}
-                  monthTotal={monthExpenseTotal}
+                  monthTotal={overviewMonthExpenseTotal}
                   accounts={accounts}
                   accountFilter={accountFilter}
                 />
                 <WeeklyBarChart
-                  expenses={scopedRecentExpenses}
+                  expenses={overviewWeekExpenses}
                   accounts={accounts}
                   accountFilter={accountFilter}
                 />
                 <DailyBreakdown
-                  expenses={monthExpenses}
+                  expenses={overviewMonthExpenses}
                   monthKey={monthKey}
                   accounts={accounts}
                   accountFilter={accountFilter}
                 />
+                <CategoryBreakdown
+                  expenses={overviewExpenses}
+                  categorySums={lifetimeCategorySums}
+                  monthTotal={lifetimeExpenseTotal}
+                  accounts={accounts}
+                  accountFilter={accountFilter}
+                  title="Lifetime"
+                  emptyTitle="No spending yet"
+                  emptyDescription="Your expenses from every month will appear here"
+                  scopeLabel="all time"
+                >
+                  <MonthlySpendList expenses={overviewExpenses} />
+                </CategoryBreakdown>
               </div>
 
               <div className="xl:col-span-2 min-h-[28rem] xl:min-h-0 xl:relative">
@@ -673,6 +667,10 @@ function Dashboard() {
                     transfers={monthTransfers}
                     accounts={accounts}
                     accountFilter={accountFilter}
+                    expenseCategory={expenseCategory}
+                    expenseSubcategory={expenseSubcategory}
+                    onExpenseCategoryChange={handleExpenseCategoryChange}
+                    onExpenseSubcategoryChange={setExpenseSubcategory}
                     onEditExpense={openEditExpense}
                     onEditIncome={openEditIncome}
                     onDeleteExpense={deleteExpense}
@@ -716,7 +714,7 @@ function Dashboard() {
         open={budgetsOpen}
         onClose={() => setBudgetsOpen(false)}
         monthKey={monthKey}
-        categorySums={categorySums}
+        categorySums={monthBudgetSums}
       />
 
       <ProfileSecurityModal open={securityOpen} onClose={() => setSecurityOpen(false)} />

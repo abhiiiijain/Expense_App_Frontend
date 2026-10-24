@@ -12,7 +12,7 @@ import EmptyState from "../EmptyState";
 function CategoryDetailPopover({ detail, onClose }) {
   if (!detail) return null;
 
-  const { category, amount, subcategories, scopeTotal = amount } = detail;
+  const { category, amount, subcategories, scopeTotal = amount, scopeLabel = "month" } = detail;
   const categoryPct = scopeTotal > 0 ? (amount / scopeTotal) * 100 : 0;
 
   return (
@@ -39,7 +39,7 @@ function CategoryDetailPopover({ detail, onClose }) {
               </h2>
             </div>
             <p className="text-xs text-ink-muted mt-1.5 tabular-nums">
-              {formatCurrency(amount)} · {formatPercent(categoryPct)} of month
+              {formatCurrency(amount)} · {formatPercent(categoryPct)} of {scopeLabel}
             </p>
           </div>
           <button
@@ -91,7 +91,7 @@ function CategoryDetailPopover({ detail, onClose }) {
   );
 }
 
-function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
+function CategoryRow({ category, amount, monthTotal, subcategories, onOpen, scopeLabel }) {
   const pct = monthTotal > 0 ? (amount / monthTotal) * 100 : 0;
   const barWidth = clampBarWidth(pct);
   const hasBreakdown = subcategories.length > 0;
@@ -101,7 +101,8 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen }) {
       <button
         type="button"
         onClick={() =>
-          hasBreakdown && onOpen({ category, amount, subcategories, scopeTotal: monthTotal })
+          hasBreakdown &&
+          onOpen({ category, amount, subcategories, scopeTotal: monthTotal, scopeLabel })
         }
         aria-haspopup="dialog"
         className={`w-full text-left rounded-xl px-2 py-2 transition ${
@@ -148,6 +149,7 @@ function MonthCategoryContent({
   categorySums,
   monthTotal,
   onSelectDetail,
+  scopeLabel,
 }) {
   const [showEmpty, setShowEmpty] = useState(false);
   const { expenseCategories } = useCategories();
@@ -197,6 +199,7 @@ function MonthCategoryContent({
               monthTotal={monthTotal}
               subcategories={subcategoryBreakdowns[category.name] || []}
               onOpen={onSelectDetail}
+              scopeLabel={scopeLabel}
             />
           ))}
         </ul>
@@ -247,6 +250,11 @@ function CategoryBreakdown({
   monthTotal,
   accounts = [],
   accountFilter = "all",
+  title = "This Month",
+  emptyTitle = "No spending this month",
+  emptyDescription = "Your expenses for this month will appear here",
+  scopeLabel = "month",
+  children,
 }) {
   const [selectedDetail, setSelectedDetail] = useState(null);
   const accountTotals = useAccountExpenseTotals(monthlyExpenses, accounts, accountFilter);
@@ -254,7 +262,7 @@ function CategoryBreakdown({
 
   return (
     <div className="sw-panel p-4 sm:p-5 w-full">
-      <CardHeader eyebrow="Overview" title="This Month" className="mb-3 sm:mb-4">
+      <CardHeader eyebrow="Overview" title={title} className="mb-3 sm:mb-4">
         {hasSpending && (
           <div className="text-right shrink-0">
             <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
@@ -268,10 +276,7 @@ function CategoryBreakdown({
       </CardHeader>
 
       {!hasSpending ? (
-        <EmptyState
-          title="No spending this month"
-          description="Your expenses for this month will appear here"
-        />
+        <EmptyState title={emptyTitle} description={emptyDescription} />
       ) : (
         <>
           {accountTotals.length > 0 && (
@@ -282,7 +287,9 @@ function CategoryBreakdown({
             categorySums={categorySums}
             monthTotal={monthTotal}
             onSelectDetail={setSelectedDetail}
+            scopeLabel={scopeLabel}
           />
+          {children}
         </>
       )}
 

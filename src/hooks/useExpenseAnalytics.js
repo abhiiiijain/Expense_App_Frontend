@@ -16,6 +16,14 @@ export function useMonthItems(items, monthKey) {
   );
 }
 
+export function useRecentItems(items, days = 7) {
+  return useMemo(() => {
+    const start = subDays(new Date(), days - 1);
+    start.setHours(0, 0, 0, 0);
+    return items.filter((item) => transactionDate(item) >= start);
+  }, [items, days]);
+}
+
 export function useMonthTotal(items) {
   return useMemo(() => items.reduce((sum, item) => sum + item.amount, 0), [items]);
 }

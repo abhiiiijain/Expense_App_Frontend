@@ -12,31 +12,7 @@ import {
   AccountTotalsBar,
 } from "./AccountBreakdown";
 import { useAccountExpenseTotals } from "../hooks/useAccountExpenseTotals";
-
-function filterByCategory(transactions, mainCategory, subcategory) {
-  if (mainCategory === "All") {
-    return transactions;
-  }
-
-  const byCategory = transactions.filter(
-    (transaction) => transaction.category === mainCategory
-  );
-
-  if (subcategory === "All") {
-    return byCategory;
-  }
-
-  return byCategory.filter((transaction) => transaction.subcategory === subcategory);
-}
-
-function filterBySearch(transactions, query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return transactions;
-  return transactions.filter((tx) => {
-    const haystack = `${tx.title} ${tx.category} ${tx.subcategory}`.toLowerCase();
-    return haystack.includes(q);
-  });
-}
+import { filterByCategory, filterBySearch } from "../utils/filterTransactions";
 
 function FilterChips({ options, selected, onSelect, activeClass, inactiveClass }) {
   return (
@@ -240,6 +216,10 @@ const Transactions = ({
   transfers = [],
   accounts = [],
   accountFilter = "all",
+  expenseCategory = "All",
+  expenseSubcategory = "All",
+  onExpenseCategoryChange,
+  onExpenseSubcategoryChange,
   onEditExpense,
   onEditIncome,
   onDeleteExpense,
@@ -248,8 +228,6 @@ const Transactions = ({
 }) => {
   const [tab, setTab] = useState("expense");
   const [search, setSearch] = useState("");
-  const [selectedMainCategory, setSelectedMainCategory] = useState("All");
-  const [selectedSubcategory, setSelectedSubcategory] = useState("All");
   const [selectedIncomeMainCategory, setSelectedIncomeMainCategory] = useState("All");
   const [selectedIncomeSubcategory, setSelectedIncomeSubcategory] = useState("All");
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -271,10 +249,10 @@ const Transactions = ({
   const filteredExpenses = useMemo(() => {
     if (tab !== "expense") return [];
     return filterBySearch(
-      filterByCategory(expenses, selectedMainCategory, selectedSubcategory),
+      filterByCategory(expenses, expenseCategory, expenseSubcategory),
       search
     );
-  }, [tab, expenses, selectedMainCategory, selectedSubcategory, search]);
+  }, [tab, expenses, expenseCategory, expenseSubcategory, search]);
 
   const filteredIncomes = useMemo(() => {
     if (tab !== "income") return [];
@@ -327,11 +305,11 @@ const Transactions = ({
   const isExpense = tab === "expense";
   const isIncome = tab === "income";
   const isTransfer = tab === "transfer";
-  const selectedMain = isExpense ? selectedMainCategory : selectedIncomeMainCategory;
-  const selectedSub = isExpense ? selectedSubcategory : selectedIncomeSubcategory;
+  const selectedMain = isExpense ? expenseCategory : selectedIncomeMainCategory;
+  const selectedSub = isExpense ? expenseSubcategory : selectedIncomeSubcategory;
   const filterCategories = isExpense ? expenseFilterCategories : incomeFilterCategories;
   const subOptions = isExpense
-    ? ["All", ...(expenseSubcategories[selectedMainCategory] || [])]
+    ? ["All", ...(expenseSubcategories[expenseCategory] || [])]
     : ["All", ...(incomeSubcategories[selectedIncomeMainCategory] || [])];
 
   const requestDelete = (transaction, type) => {
@@ -424,8 +402,7 @@ const Transactions = ({
               onChange={(e) => {
                 const value = e.target.value;
                 if (isExpense) {
-                  setSelectedMainCategory(value);
-                  setSelectedSubcategory("All");
+                  onExpenseCategoryChange?.(value);
                 } else {
                   setSelectedIncomeMainCategory(value);
                   setSelectedIncomeSubcategory("All");
@@ -456,7 +433,7 @@ const Transactions = ({
           <FilterChips
             options={subOptions}
             selected={selectedSub}
-            onSelect={isExpense ? setSelectedSubcategory : setSelectedIncomeSubcategory}
+            onSelect={isExpense ? onExpenseSubcategoryChange : setSelectedIncomeSubcategory}
             activeClass={
               isExpense
                 ? "bg-rose-700 text-white border-rose-700"
