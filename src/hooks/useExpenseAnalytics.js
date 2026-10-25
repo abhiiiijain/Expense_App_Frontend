@@ -3,25 +3,17 @@ import {
   formatChartDateLabel,
   formatChartDayTooltip,
   formatDateKey,
-  isInMonthKey,
+  isInPeriod,
   subDays,
   transactionDate,
 } from "../utils/dateHelpers";
 
-/** Extra client filter — safe if the API already scoped by month. */
-export function useMonthItems(items, monthKey) {
+/** Client month filter — GET /transactions returns the full history. */
+export function useMonthItems(items, monthKey, cycle = "calendar") {
   return useMemo(
-    () => items.filter((item) => isInMonthKey(transactionDate(item), monthKey)),
-    [items, monthKey]
+    () => items.filter((item) => isInPeriod(transactionDate(item), monthKey, cycle)),
+    [cycle, items, monthKey]
   );
-}
-
-export function useRecentItems(items, days = 7) {
-  return useMemo(() => {
-    const start = subDays(new Date(), days - 1);
-    start.setHours(0, 0, 0, 0);
-    return items.filter((item) => transactionDate(item) >= start);
-  }, [items, days]);
 }
 
 export function useMonthTotal(items) {
@@ -44,9 +36,6 @@ export function useCategorySums(monthlyExpenses, expenseCategoryNames) {
 
 export function useWeeklyBarChartData(expenses, expenseCategories, expenseCategoryNames) {
   return useMemo(() => {
-    const weekStart = subDays(new Date(), 6);
-    weekStart.setHours(0, 0, 0, 0);
-
     const last7Dates = Array.from({ length: 7 }, (_, index) =>
       subDays(new Date(), 6 - index)
     );
@@ -59,12 +48,7 @@ export function useWeeklyBarChartData(expenses, expenseCategories, expenseCatego
     );
 
     expenses.forEach((expense) => {
-      const expenseDate = transactionDate(expense);
-      if (expenseDate < weekStart) {
-        return;
-      }
-
-      const dayIndex = dateKeys.indexOf(formatDateKey(expenseDate));
+      const dayIndex = dateKeys.indexOf(formatDateKey(transactionDate(expense)));
       if (dayIndex !== -1 && sums[expense.category]) {
         sums[expense.category][dayIndex] += expense.amount;
       }

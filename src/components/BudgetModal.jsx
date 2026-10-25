@@ -34,7 +34,7 @@ function BudgetModal({ open, onClose, monthKey, categorySums }) {
         </div>
 
         {open && (
-          <BudgetPanel monthKey={monthKey} categorySums={categorySums} embedded />
+          <BudgetPanel monthKey={monthKey} categorySums={categorySums} />
         )}
       </div>
     </ModalShell>

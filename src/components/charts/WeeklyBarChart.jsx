@@ -39,8 +39,6 @@ function useBarChartOptions(isNarrow, tooltipLabels) {
         },
       },
       plugins: {
-        legend: { display: false },
-        datalabels: { display: false },
         tooltip: {
           backgroundColor: "#0f172a",
           titleColor: "#f8fafc",

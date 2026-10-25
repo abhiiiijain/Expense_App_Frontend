@@ -7,7 +7,6 @@ function ConfirmModal({
   description,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
-  tone = "danger",
   onConfirm,
   onCancel,
 }) {
@@ -18,11 +17,6 @@ function ConfirmModal({
   }, [open]);
 
   if (!open) return null;
-
-  const confirmClass =
-    tone === "danger"
-      ? "bg-rose-600 hover:bg-rose-700 disabled:bg-rose-200"
-      : "bg-sage-600 hover:bg-sage-700 disabled:bg-sage-200";
 
   const handleConfirm = async () => {
     if (busy) return;
@@ -76,7 +70,7 @@ function ConfirmModal({
           type="button"
           disabled={busy}
           onClick={handleConfirm}
-          className={`inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-white font-semibold disabled:text-ink-muted transition active:scale-[0.98] ${confirmClass}`}
+          className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl text-white font-semibold disabled:text-ink-muted transition active:scale-[0.98] bg-rose-600 hover:bg-rose-700 disabled:bg-rose-200"
         >
           {busy ? "Working…" : confirmLabel}
         </button>

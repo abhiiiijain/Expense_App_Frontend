@@ -2,16 +2,34 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { DEFAULT_CONFIG, fetchAppConfig } from "../api/config";
 
 const AppConfigContext = createContext(DEFAULT_CONFIG);
+const CONFIG_POLL_MS = import.meta.env.DEV ? 2000 : 0;
 
 export function AppConfigProvider({ children }) {
   const [config, setConfig] = useState(DEFAULT_CONFIG);
 
   useEffect(() => {
-    fetchAppConfig()
-      .then(setConfig)
-      .catch(() => {
+    let cancelled = false;
+    let serialized = "";
+
+    const load = async () => {
+      try {
+        const next = await fetchAppConfig();
+        const asText = JSON.stringify(next);
+        if (cancelled || asText === serialized) return;
+        serialized = asText;
+        setConfig(next);
+      } catch {
         // Keep bundled fallback taxonomy when the API is unavailable
-      });
+      }
+    };
+
+    load();
+    if (!CONFIG_POLL_MS) return undefined;
+    const id = setInterval(load, CONFIG_POLL_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
   }, []);
 
   return <AppConfigContext.Provider value={config}>{children}</AppConfigContext.Provider>;

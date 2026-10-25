@@ -3,9 +3,8 @@ import { fetchBudgets, upsertBudget } from "../api/budgets";
 import { useCategories } from "../config/AppConfigContext";
 import { formatCurrency, formatPercent } from "../utils/formatCurrency";
 import { toast } from "react-toastify";
-import CardHeader from "./charts/CardHeader";
 
-function BudgetPanel({ monthKey, categorySums, embedded = false }) {
+function BudgetPanel({ monthKey, categorySums }) {
   const { expenseCategories } = useCategories();
   const [budgets, setBudgets] = useState([]);
   const [editing, setEditing] = useState(null);
@@ -69,9 +68,8 @@ function BudgetPanel({ monthKey, categorySums, embedded = false }) {
     }
   };
 
-  const body = (
+  return (
     <>
-      {!embedded && <CardHeader eyebrow="Plan" title="Category budgets" className="mb-3" />}
       {loading ? (
         <div className="h-24 animate-pulse rounded-xl bg-[var(--sw-muted-bg)]" />
       ) : withBudget.length === 0 ? (
@@ -80,7 +78,7 @@ function BudgetPanel({ monthKey, categorySums, embedded = false }) {
         </p>
       ) : null}
 
-      <ul className={`space-y-2 overflow-y-auto ${embedded ? "max-h-[min(52vh,24rem)] flex-1 min-h-0" : "mt-2 max-h-72"}`}>
+      <ul className="space-y-2 overflow-y-auto max-h-[min(52vh,24rem)] flex-1 min-h-0">
         {(withBudget.length ? withBudget : rows.slice(0, 6)).map(
           ({ category, spent, budget, pct }) => (
             <li key={category.name} className="rounded-xl px-2 py-2 hover:bg-[var(--sw-muted-bg)]">
@@ -161,10 +159,6 @@ function BudgetPanel({ monthKey, categorySums, embedded = false }) {
       )}
     </>
   );
-
-  if (embedded) return body;
-
-  return <div className="sw-panel p-4 sm:p-5 w-full">{body}</div>;
 }
 
 export default BudgetPanel;

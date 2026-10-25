@@ -3,6 +3,12 @@ import ModalShell from "./ModalShell";
 import { useCategories } from "../config/AppConfigContext";
 import { SUBCATEGORY_ICONS } from "../constants/categoryMeta";
 import { formatAmountInput, roundMoney, sanitizeAmountInput } from "../utils/sanitizeAmount";
+import {
+  CARD_PAYMENT_SUBCATEGORY,
+  EXTERNAL_PAY_FROM,
+  isCardPaymentOnCreditAccount,
+  suggestedCardPaymentTitle,
+} from "../utils/creditCardPayments";
 import { toDateInputValue, transactionDate } from "../utils/dateHelpers";
 
 const emptyForm = (type = "expense", accountId = "", date = toDateInputValue()) => ({
@@ -15,21 +21,27 @@ const emptyForm = (type = "expense", accountId = "", date = toDateInputValue()) 
   accountId,
   fromAccountId: accountId,
   toAccountId: "",
+  settlesAccountId: "",
   note: "",
 });
 
-const formFromTransaction = (transaction, fallbackAccountId) => ({
-  title: transaction.title || "",
-  amount: transaction.amount != null ? formatAmountInput(transaction.amount) : "",
-  category: transaction.category || "",
-  subcategory: transaction.subcategory || "",
-  type: transaction.type === "income" ? "income" : "expense",
-  date: toDateInputValue(transactionDate(transaction)),
-  accountId: transaction.accountId || fallbackAccountId || "",
-  fromAccountId: fallbackAccountId || "",
-  toAccountId: "",
-  note: "",
-});
+const formFromTransaction = (transaction, fallbackAccountId, accounts = []) => {
+  const paidOutside = isCardPaymentOnCreditAccount(transaction, accounts);
+  return {
+    title: transaction.title || "",
+    amount: transaction.amount != null ? formatAmountInput(transaction.amount) : "",
+    category: transaction.category || "",
+    subcategory: transaction.subcategory || "",
+    type: transaction.type === "income" ? "income" : "expense",
+    date: toDateInputValue(transactionDate(transaction)),
+    accountId: paidOutside ? EXTERNAL_PAY_FROM : transaction.accountId || fallbackAccountId || "",
+    fromAccountId: fallbackAccountId || "",
+    toAccountId: "",
+    settlesAccountId:
+      transaction.settlesAccountId || (paidOutside ? transaction.accountId : "") || "",
+    note: "",
+  };
+};
 
 const AddExpenseModal = ({
   open,
@@ -58,13 +70,53 @@ const AddExpenseModal = ({
     if (!open) return;
     setFormData(
       editingTransaction
-        ? formFromTransaction(editingTransaction, fallbackAccount)
+        ? formFromTransaction(editingTransaction, fallbackAccount, accounts)
         : emptyForm(defaultType, fallbackAccount)
     );
     setSaving(false);
   }, [open, defaultType, editingTransaction, fallbackAccount]);
 
   const isTransfer = formData.type === "transfer";
+  const isCardPayment =
+    !isTransfer &&
+    formData.type === "expense" &&
+    formData.subcategory === CARD_PAYMENT_SUBCATEGORY;
+  const paidOutside = isCardPayment && formData.accountId === EXTERNAL_PAY_FROM;
+  const creditAccounts = accounts.filter((account) => account.type === "credit");
+  const payFromAccounts = isCardPayment
+    ? accounts.filter((account) => account.type !== "credit")
+    : accounts;
+  const showCardSettle = isCardPayment && creditAccounts.length > 0;
+
+  useEffect(() => {
+    if (formData.type !== "expense" || formData.subcategory !== CARD_PAYMENT_SUBCATEGORY) return;
+    setFormData((prev) => {
+      const credits = accounts.filter((account) => account.type === "credit");
+      const fromCredit = credits.some((account) => String(account.id) === String(prev.accountId));
+      const accountId = fromCredit ? EXTERNAL_PAY_FROM : prev.accountId;
+      const paidFromOutside = accountId === EXTERNAL_PAY_FROM;
+      const stillValid = credits.some(
+        (account) =>
+          String(account.id) === String(prev.settlesAccountId) &&
+          (paidFromOutside || String(account.id) !== String(accountId))
+      );
+      const nextSettle =
+        (stillValid ? prev.settlesAccountId : "") ||
+        credits.find((account) => paidFromOutside || String(account.id) !== String(accountId))
+          ?.id ||
+        "";
+      const card = credits.find((account) => String(account.id) === String(nextSettle));
+      const title = prev.title.trim() ? prev.title : suggestedCardPaymentTitle(card);
+      if (
+        accountId === prev.accountId &&
+        nextSettle === prev.settlesAccountId &&
+        title === prev.title
+      ) {
+        return prev;
+      }
+      return { ...prev, accountId, settlesAccountId: nextSettle, title };
+    });
+  }, [accounts, formData.type, formData.accountId, formData.subcategory]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -117,7 +169,10 @@ const AddExpenseModal = ({
           type: formData.type,
           icon: SUBCATEGORY_ICONS[formData.subcategory],
           date: formData.date,
-          accountId: formData.accountId,
+          accountId: paidOutside ? formData.settlesAccountId : formData.accountId,
+          ...(isCardPayment && formData.settlesAccountId
+            ? { settlesAccountId: formData.settlesAccountId }
+            : {}),
         };
 
     try {
@@ -368,7 +423,7 @@ const AddExpenseModal = ({
               </div>
               {accounts.length > 0 && (
                 <div>
-                  <label className="sw-label">Account</label>
+                  <label className="sw-label">{isCardPayment ? "Paid from" : "Account"}</label>
                   <select
                     name="accountId"
                     value={formData.accountId}
@@ -376,13 +431,21 @@ const AddExpenseModal = ({
                     required
                     className="sw-input"
                   >
-                    {accounts.map((account) => (
+                    {payFromAccounts.map((account) => (
                       <option key={account.id} value={account.id}>
                         {account.name}
                         {account.isDefault ? " (default)" : ""}
                       </option>
                     ))}
+                    {isCardPayment && creditAccounts.length > 0 && (
+                      <option value={EXTERNAL_PAY_FROM}>Outside SpendWise (family / other)</option>
+                    )}
                   </select>
+                  {paidOutside && (
+                    <p className="mt-1.5 text-[11px] text-ink-muted">
+                      Reduces the card due. Does not change SBI, HDFC, or other tracked accounts.
+                    </p>
+                  )}
                 </div>
               )}
               <div>
@@ -424,6 +487,25 @@ const AddExpenseModal = ({
                   ))}
                 </select>
               </div>
+              {showCardSettle && (
+                <div>
+                  <label className="sw-label">Pays toward</label>
+                  <select
+                    name="settlesAccountId"
+                    value={formData.settlesAccountId}
+                    onChange={handleInputChange}
+                    className="sw-input"
+                  >
+                    {creditAccounts
+                      .filter((account) => String(account.id) !== String(formData.accountId))
+                      .map((account) => (
+                        <option key={account.id} value={account.id}>
+                          {account.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
             </>
           )}
 

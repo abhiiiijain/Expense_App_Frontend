@@ -6,13 +6,5 @@ import {
   LinearScale,
   Tooltip,
 } from "chart.js";
-import ChartDataLabels from "chartjs-plugin-datalabels";
 
-ChartJS.register(
-  ArcElement,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  ChartDataLabels
-);
+ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip);

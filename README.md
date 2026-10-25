@@ -1,6 +1,6 @@
 # SpendWise (frontend)
 
-Vite + React UI for SpendWise — track expenses, income, and account balance.
+Vite + React UI for SpendWise — track expenses, income, transfers, and account balances (including credit-card cycles).
 
 **Live:** [https://spendwise.abhiiiijain.com](https://spendwise.abhiiiijain.com) · also [Vercel](https://spendwise-seven-alpha.vercel.app)
 
@@ -15,6 +15,8 @@ Requires **Node.js 18+**.
 - Tailwind CSS
 - Chart.js / react-chartjs-2
 - Axios + JWT (Bearer token in `localStorage`)
+- PIN lock + WebAuthn device unlock (not login)
+- PWA (vite-plugin-pwa)
 - react-toastify
 
 ## Setup
@@ -59,15 +61,25 @@ VITE_API_BASE_URL=https://expense-app-backend-srz0.onrender.com
 | `npm run dev` | Local Vite server (also `npm start`) |
 | `npm run build` | Production build → `dist/` |
 | `npm run preview` | Preview production build |
-| `npm test` | Vitest (single run) |
-| `npm run test:watch` | Vitest watch mode |
 | `npm run lint` | ESLint |
 
 ## Local development
 
-1. Start the backend (`npm run dev` in the API repo, default port `4044`).
+1. Start the backend (`npm run dev` in the API folder, default port `4044`).
 2. Start the frontend: `npm run dev` (port from `VITE_PORT`, default `4043`).
 3. Open `http://localhost:4043`.
+
+In Vite **development**, hiding the tab does not lock the PIN. Production always locks on hide. Production also requires a PIN after login.
+
+## App behavior
+
+- **Accounts:** bank, cash, credit, other. New credit cards ask for statement day and due day (1–28). Unused credit limit is not available cash.
+- **Spent:** consumption only. Credit-card bill payments are not spent; they settle the card and show on Transfers.
+- **Income:** salary, family transfers (e.g. Mummy), refunds. Account-to-account transfers are not income.
+- **Month vs credit cycle:** a credit account’s dashboard month follows that card’s statement/due days.
+- **Activity:** Statement (oldest first, running balance), Expenses, Income, Transfers. Search mixes all types and groups by **calendar date**, newest first.
+- **Edits:** add/edit/delete only within 24 hours of `createdAt` (window comes from `/config`).
+- **Unlock:** PIN or platform authenticator. WebAuthn does not replace email/password login.
 
 ## Deploy (Vercel)
 
@@ -94,13 +106,13 @@ https://spendwise-seven-alpha.vercel.app,https://spendwise.abhiiiijain.com
 
 ```text
 src/
-  main.jsx       Entry + Chart.js setup
-  app/           Router shell + dashboard
-  auth/          Login, register, context, auth API helpers
-  api/           Axios client + transaction API
-  components/    UI (charts, modals, lists)
-  config/        API base URL helpers
-  constants/     App name + categories
-  hooks/         Analytics helpers
-  utils/         Dates, currency, amount sanitize
+  main.jsx              Entry + PWA
+  app/                  Router shell + dashboard
+  auth/                 Login, register, PIN lock, WebAuthn helpers
+  api/                  Axios client, transactions, accounts, transfers, budgets
+  components/           Activity list, accounts, budgets, charts, modals
+  config/               API URL, taxonomy context, theme, Chart.js
+  constants/            Branding + chart colors
+  hooks/                Month analytics, PWA install, escape / scroll lock
+  utils/                Dates, credit cycles, card payments, currency
 ```

@@ -11,15 +11,13 @@ import {
   formatChartDayTooltip,
   formatDateKey,
   getDayBoundsForMonth,
-  getMonthKey,
   shiftDateKey,
   transactionDate,
 } from "../../utils/dateHelpers";
 import EmptyState from "../EmptyState";
 
-function DaySwitcher({ dayKey, monthKey, onChange }) {
+function DaySwitcher({ dayKey, minDayKey, maxDayKey, onChange }) {
   const todayKey = formatDateKey(new Date());
-  const { minDayKey, maxDayKey } = getDayBoundsForMonth(monthKey);
   const atMin = dayKey <= minDayKey;
   const atMax = dayKey >= maxDayKey;
   const isToday = dayKey === todayKey;
@@ -40,7 +38,7 @@ function DaySwitcher({ dayKey, monthKey, onChange }) {
       </button>
       <div className="min-w-[9.5rem] text-center px-2">
         <p className="text-sm font-semibold text-ink tabular-nums">{dayLabel}</p>
-        {!isToday && getMonthKey(new Date()) === monthKey && (
+        {!isToday && todayKey >= minDayKey && todayKey <= maxDayKey && (
           <button
             type="button"
             className="text-[10px] font-medium text-sage-700 dark:text-blue-300 hover:underline"
@@ -105,19 +103,18 @@ function DailyBreakdown({
   monthKey,
   accounts = [],
   accountFilter = "all",
+  cycle = "calendar",
 }) {
   const { expenseCategories, expenseCategoryNames } = useCategories();
-  const { maxDayKey } = getDayBoundsForMonth(monthKey);
+  const { minDayKey, maxDayKey } = getDayBoundsForMonth(monthKey, cycle);
   const [dayKey, setDayKey] = useState(() => formatDateKey(new Date()));
 
   useEffect(() => {
     setDayKey((current) => {
-      if (current > maxDayKey) return maxDayKey;
-      const { minDayKey } = getDayBoundsForMonth(monthKey);
-      if (current < minDayKey) return maxDayKey;
+      if (current > maxDayKey || current < minDayKey) return maxDayKey;
       return current;
     });
-  }, [monthKey, maxDayKey]);
+  }, [minDayKey, maxDayKey]);
 
   const dayExpenses = useMemo(
     () => expenses.filter((expense) => formatDateKey(transactionDate(expense)) === dayKey),
@@ -156,7 +153,12 @@ function DailyBreakdown({
       </CardHeader>
 
       <div className="mb-4 flex justify-center sm:justify-start">
-        <DaySwitcher dayKey={dayKey} monthKey={monthKey} onChange={setDayKey} />
+        <DaySwitcher
+          dayKey={dayKey}
+          minDayKey={minDayKey}
+          maxDayKey={maxDayKey}
+          onChange={setDayKey}
+        />
       </div>
 
       {!hasSpending ? (

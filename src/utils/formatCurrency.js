@@ -1,15 +1,23 @@
-export function formatCurrency(amount, { signed = false } = {}) {
-  const abs = Math.abs(amount);
-  const formatted = abs.toLocaleString("en-IN", {
+function rupees(amount) {
+  return Math.abs(Number(amount) || 0).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
 
-  if (!signed || amount === 0) {
-    return `₹${formatted}`;
-  }
+export function formatCurrency(amount, { signed = false } = {}) {
+  const n = Number(amount) || 0;
+  const formatted = `₹${rupees(n)}`;
+  if (!signed || n === 0) return formatted;
+  return n < 0 ? `-${formatted}` : `+${formatted}`;
+}
 
-  return amount < 0 ? `-₹${formatted}` : `+₹${formatted}`;
+/** Passbook-style amount: ₹1,22,678.51 CR / ₹486.00 DR */
+export function formatLedgerAmount(amount) {
+  const n = Number(amount);
+  if (!Number.isFinite(n) || n === 0) return "₹0.00";
+  const formatted = `₹${rupees(n)}`;
+  return n > 0 ? `${formatted} CR` : `${formatted} DR`;
 }
 
 /** Percentage with exactly 2 decimal places. */

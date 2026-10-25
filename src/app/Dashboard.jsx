@@ -15,6 +15,7 @@ import OnboardingChecklist from "../components/OnboardingChecklist";
 import { updateOpeningBalance } from "../auth/authService";
 import {
   fetchTransactions,
+  fetchDashboardStamp,
   createTransaction,
   updateTransaction as updateTransactionRequest,
   deleteTransaction as deleteTransactionRequest,
@@ -22,7 +23,7 @@ import {
 import { createTransfer, deleteTransfer as deleteTransferRequest } from "../api/transfers";
 import { fetchAccounts } from "../api/accounts";
 import { useAuth } from "../auth/AuthContext";
-import { useAppConfig, useCategories } from "../config/AppConfigContext";
+import { useAppConfig } from "../config/AppConfigContext";
 import { useTheme } from "../config/ThemeContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { usePwaInstall } from "../hooks/usePwaInstall";
@@ -30,7 +31,6 @@ import {
   useCategorySums,
   useMonthItems,
   useMonthTotal,
-  useRecentItems,
 } from "../hooks/useExpenseAnalytics";
 import MonthlySpendList from "../components/charts/MonthlySpendList";
 import BrandLogo from "../components/BrandLogo";
@@ -38,11 +38,25 @@ import {
   getMonthKey,
   isTransactionEditable,
   formatMonthLabel,
+  formatCreditDueLabel,
+  formatCreditStatementHint,
+  creditCycleForAccount,
 } from "../utils/dateHelpers";
+import { getCreditBillPaymentStatus } from "../utils/creditStatement";
 import { editWindowToastMessage } from "../utils/formatEditWindow";
 import { buildTransactionsCsv } from "../utils/exportCsv";
-import { filterByCategory } from "../utils/filterTransactions";
+import { filterByAccount, filterByCategory } from "../utils/filterTransactions";
+import { activityFromMonth, rewindBalance } from "../utils/monthBalances";
+import {
+  cardPaymentSpendAdjustments,
+  filterCardPaymentsForAccount,
+  isCardPaymentExpense,
+} from "../utils/creditCardPayments";
 import { toast } from "react-toastify";
+
+function isCreditAccount(account) {
+  return account?.type === "credit";
+}
 
 function getGreeting() {
   const hour = new Date().getHours();
@@ -51,17 +65,11 @@ function getGreeting() {
   return "Good evening";
 }
 
-function filterByAccount(items, accountFilter) {
-  if (accountFilter === "all") return items;
-  return items.filter((tx) => String(tx.accountId) === String(accountFilter));
-}
-
 function Dashboard() {
   const { user, setUser, logout } = useAuth();
-  const { editWindowMs } = useAppConfig();
+  const { editWindowMs, expenseCategoryNames } = useAppConfig();
   const { theme, toggleTheme } = useTheme();
   const { canInstall, install } = usePwaInstall();
-  const { expenseCategoryNames } = useCategories();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
   const [expenses, setExpenses] = useState([]);
@@ -82,26 +90,39 @@ function Dashboard() {
   const [budgetsOpen, setBudgetsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
 
-  const defaultAccountId =
-    accounts.find((a) => a.isDefault)?.id || accounts[0]?.id || "";
-  const defaultAccountOpening =
-    accounts.find((a) => a.isDefault)?.openingBalance ??
-    accounts[0]?.openingBalance ??
-    0;
+  const defaultAccount = accounts.find((a) => a.isDefault) || accounts[0];
+  const defaultAccountId = defaultAccount?.id || "";
+  const defaultAccountOpening = defaultAccount?.openingBalance ?? 0;
 
-  const totalOpening = useMemo(
-    () => accounts.reduce((sum, a) => sum + (a.openingBalance || 0), 0),
-    [accounts]
+  const selectedAccount = useMemo(
+    () =>
+      accountFilter === "all"
+        ? null
+        : accounts.find((account) => String(account.id) === String(accountFilter)),
+    [accountFilter, accounts]
   );
+  const viewingCredit = isCreditAccount(selectedAccount);
+  const creditCycle = creditCycleForAccount(selectedAccount);
+  const periodCycle = creditCycle || "calendar";
 
-  const totalBalance = useMemo(
-    () => accounts.reduce((sum, a) => sum + (a.balance || 0), 0),
-    [accounts]
-  );
+  const { consumptionExpenses, cardPaymentExpenses } = useMemo(() => {
+    const consumption = [];
+    const payments = [];
+    for (const expense of expenses) {
+      if (isCardPaymentExpense(expense)) payments.push(expense);
+      else consumption.push(expense);
+    }
+    return { consumptionExpenses: consumption, cardPaymentExpenses: payments };
+  }, [expenses]);
 
   const scopedExpenses = useMemo(
-    () => filterByAccount(expenses, accountFilter),
-    [accountFilter, expenses]
+    () => filterByAccount(consumptionExpenses, accountFilter),
+    [accountFilter, consumptionExpenses]
+  );
+
+  const scopedCardPayments = useMemo(
+    () => filterCardPaymentsForAccount(cardPaymentExpenses, accountFilter, accounts),
+    [accountFilter, accounts, cardPaymentExpenses]
   );
 
   const scopedIncomes = useMemo(
@@ -110,14 +131,7 @@ function Dashboard() {
   );
 
   const scopedTransfers = useMemo(
-    () =>
-      accountFilter === "all"
-        ? transfers
-        : transfers.filter(
-            (tx) =>
-              String(tx.fromAccountId) === String(accountFilter) ||
-              String(tx.toAccountId) === String(accountFilter)
-          ),
+    () => filterByAccount(transfers, accountFilter),
     [accountFilter, transfers]
   );
 
@@ -126,17 +140,67 @@ function Dashboard() {
     [scopedExpenses, expenseCategory, expenseSubcategory]
   );
 
-  const monthExpenses = useMonthItems(scopedExpenses, monthKey);
-  const monthIncomes = useMonthItems(scopedIncomes, monthKey);
-  const monthTransfers = useMonthItems(scopedTransfers, monthKey);
-  const overviewMonthExpenses = useMonthItems(overviewExpenses, monthKey);
-  const overviewWeekExpenses = useRecentItems(overviewExpenses, 7);
+  const monthExpenses = useMonthItems(scopedExpenses, monthKey, periodCycle);
+  const monthCardPayments = useMonthItems(scopedCardPayments, monthKey, periodCycle);
+  const monthIncomes = useMonthItems(scopedIncomes, monthKey, periodCycle);
+  const monthTransfers = useMonthItems(scopedTransfers, monthKey, periodCycle);
+  const overviewMonthExpenses = useMonthItems(overviewExpenses, monthKey, periodCycle);
 
   const categorySums = useCategorySums(overviewMonthExpenses, expenseCategoryNames);
   const monthBudgetSums = useCategorySums(monthExpenses, expenseCategoryNames);
   const monthExpenseTotal = useMonthTotal(monthExpenses);
   const overviewMonthExpenseTotal = useMonthTotal(overviewMonthExpenses);
   const monthIncomeTotal = useMonthTotal(monthIncomes);
+  const cardSpendAdjustments = useMemo(
+    () =>
+      accountFilter === "all"
+        ? cardPaymentSpendAdjustments(monthCardPayments, accounts)
+        : { outside: 0, unmatched: 0 },
+    [accountFilter, accounts, monthCardPayments]
+  );
+  const { monthStartOpening, monthEndBalance, creditBill } = useMemo(() => {
+    const accountIds =
+      accountFilter === "all" ? accounts.map((account) => account.id) : [accountFilter];
+    const current =
+      accountFilter === "all"
+        ? accounts.reduce((sum, account) => sum + (account.balance || 0), 0)
+        : selectedAccount?.balance || 0;
+    const creditAccounts = accounts.filter((account) => isCreditAccount(account));
+    const { fromThisMonth, afterThisMonth } = activityFromMonth(
+      incomes,
+      expenses,
+      transfers,
+      accountIds,
+      monthKey,
+      creditAccounts,
+      periodCycle
+    );
+    const monthStartOpening = rewindBalance(current, fromThisMonth);
+    const monthEndBalance = rewindBalance(current, afterThisMonth);
+    const creditBill =
+      creditCycle && selectedAccount
+        ? getCreditBillPaymentStatus({
+            monthKey,
+            closingBalance: monthEndBalance,
+            expenses,
+            transfers,
+            creditAccount: selectedAccount,
+            creditAccounts,
+            cycle: periodCycle,
+          })
+        : null;
+    return { monthStartOpening, monthEndBalance, creditBill };
+  }, [
+    accountFilter,
+    accounts,
+    creditCycle,
+    expenses,
+    incomes,
+    monthKey,
+    periodCycle,
+    selectedAccount,
+    transfers,
+  ]);
   const lifetimeCategorySums = useCategorySums(overviewExpenses, expenseCategoryNames);
   const lifetimeExpenseTotal = useMonthTotal(overviewExpenses);
 
@@ -161,15 +225,47 @@ function Dashboard() {
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([loadTransactions(), loadAccounts()])
-      .catch(() => {
-        if (!cancelled) toast.error("Could not load dashboard data");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
+    let stamp = "";
+    let inFlight = false;
+
+    const refresh = async ({ initial = false } = {}) => {
+      if (cancelled || inFlight) return;
+      if (!initial && document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        if (initial) {
+          await Promise.all([loadTransactions(), loadAccounts()]);
+          try {
+            stamp = await fetchDashboardStamp();
+          } catch {
+            stamp = "";
+          }
+          return;
+        }
+        const next = await fetchDashboardStamp();
+        if (cancelled || next === stamp) return;
+        stamp = next;
+        await Promise.all([loadTransactions(), loadAccounts()]);
+      } catch {
+        if (initial && !cancelled) toast.error("Could not load dashboard data");
+      } finally {
+        inFlight = false;
+        if (initial && !cancelled) setLoading(false);
+      }
+    };
+
+    refresh({ initial: true });
+    const id = setInterval(() => {
+      refresh();
+    }, 2000);
+    const onVisible = () => refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
     return () => {
       cancelled = true;
+      clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
   }, [loadTransactions, loadAccounts]);
 
@@ -372,11 +468,12 @@ function Dashboard() {
       expenses: monthExpenses,
       incomes: monthIncomes,
       transfers: monthTransfers,
+      cardPayments: monthCardPayments,
       accounts,
       monthLabel: formatMonthLabel(monthKey),
     });
     toast.success("CSV downloaded", { position: "top-center" });
-  }, [accounts, monthExpenses, monthIncomes, monthKey, monthTransfers]);
+  }, [accounts, monthCardPayments, monthExpenses, monthIncomes, monthKey, monthTransfers]);
 
   const displayName =
     ((user.firstName || "") + " " + (user.lastName || "")).trim() || user.email;
@@ -386,15 +483,16 @@ function Dashboard() {
     (user.email || "?").charAt(0).toUpperCase();
 
   return (
-    <div className="sw-page">
-      <header
-        className="sticky top-0 z-30 backdrop-blur-md"
+    <div className="sw-page h-dvh max-h-dvh flex flex-col overflow-hidden">
+      <div
+        className="shrink-0 z-30 backdrop-blur-md"
         style={{
           background: "color-mix(in srgb, var(--sw-panel) 92%, transparent)",
           borderBottom: "1px solid var(--sw-border)",
         }}
       >
-        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3.5">
+      <header>
+        <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-2">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1 sm:flex-none sm:max-w-[22rem]">
               <BrandLogo variant="horizontal" className="rounded-md" />
@@ -552,23 +650,10 @@ function Dashboard() {
           </p>
         </div>
       </header>
-
-      <main className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 pb-28">
-        {loading ? (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              {[1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="h-[88px] rounded-2xl animate-pulse sw-card"
-                />
-              ))}
-            </div>
-          </div>
-        ) : (
-          <>
+        {!loading && (
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-2.5 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <MonthSwitcher monthKey={monthKey} onChange={setMonthKey} />
+              <MonthSwitcher monthKey={monthKey} onChange={setMonthKey} cycle={periodCycle} />
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -594,31 +679,52 @@ function Dashboard() {
                 )}
               </div>
             </div>
+            <SummaryCards
+              totalIncome={monthIncomeTotal}
+              totalExpense={monthExpenseTotal}
+              openingBalance={monthStartOpening}
+              accountBalance={monthEndBalance}
+              isCredit={viewingCredit}
+              creditBill={creditBill}
+              periodNote={
+                creditCycle ? formatCreditDueLabel(monthKey, periodCycle) : null
+              }
+              balanceHint={
+                creditCycle
+                  ? formatCreditStatementHint(monthKey, periodCycle)
+                  : accountFilter === "all" || viewingCredit
+                    ? "Month end · credit limit is not included"
+                    : "Month end · opening this month + income − spend"
+              }
+              outsideSettled={cardSpendAdjustments.outside}
+              unmatchedCardOutflow={cardSpendAdjustments.unmatched}
+              onEditOpeningBalance={viewingCredit ? undefined : openOpeningBalanceModal}
+            />
+          </div>
+        )}
+      </div>
 
+      <main className="relative z-10 flex-1 min-h-0 overflow-y-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-6 pb-28">
+        {loading ? (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {[1, 2, 3].map((i) => (
+                <div
+                  key={i}
+                  className="h-[88px] rounded-2xl animate-pulse sw-card"
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <>
             <OnboardingChecklist
               hasOpeningBalance={Boolean(user.openingBalanceSet)}
               hasAccount={accounts.length > 0}
               hasTransaction={hasTransactions}
               onOpenAccounts={() => setAccountsOpen(true)}
               onAddTransaction={openAddModal}
-            />
-
-            <SummaryCards
-              monthKey={monthKey}
-              totalIncome={monthIncomeTotal}
-              totalExpense={monthExpenseTotal}
-              openingBalance={
-                accountFilter === "all"
-                  ? totalOpening
-                  : accounts.find((a) => String(a.id) === String(accountFilter))?.openingBalance ||
-                    0
-              }
-              accountBalance={
-                accountFilter === "all"
-                  ? totalBalance
-                  : accounts.find((a) => String(a.id) === String(accountFilter))?.balance
-              }
-              onEditOpeningBalance={openOpeningBalanceModal}
             />
 
             <div
@@ -634,7 +740,7 @@ function Dashboard() {
                   accountFilter={accountFilter}
                 />
                 <WeeklyBarChart
-                  expenses={overviewWeekExpenses}
+                  expenses={overviewExpenses}
                   accounts={accounts}
                   accountFilter={accountFilter}
                 />
@@ -643,6 +749,7 @@ function Dashboard() {
                   monthKey={monthKey}
                   accounts={accounts}
                   accountFilter={accountFilter}
+                  cycle={periodCycle}
                 />
                 <CategoryBreakdown
                   expenses={overviewExpenses}
@@ -665,6 +772,11 @@ function Dashboard() {
                     expenses={monthExpenses}
                     incomes={monthIncomes}
                     transfers={monthTransfers}
+                    cardPayments={monthCardPayments}
+                    allExpenses={consumptionExpenses}
+                    allIncomes={incomes}
+                    allTransfers={transfers}
+                    allCardPayments={cardPaymentExpenses}
                     accounts={accounts}
                     accountFilter={accountFilter}
                     expenseCategory={expenseCategory}
@@ -676,12 +788,16 @@ function Dashboard() {
                     onDeleteExpense={deleteExpense}
                     onDeleteIncome={deleteIncome}
                     onDeleteTransfer={removeTransfer}
+                    monthStartOpening={monthStartOpening}
+                    monthEndBalance={monthEndBalance}
+                    isCredit={viewingCredit}
                   />
                 </div>
               </div>
             </div>
           </>
         )}
+        </div>
       </main>
 
       <AddExpenseModal

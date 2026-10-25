@@ -21,6 +21,7 @@ export function buildTransactionsCsv({
   expenses = [],
   incomes = [],
   transfers = [],
+  cardPayments = [],
   accounts = [],
   monthLabel,
 }) {
@@ -56,6 +57,7 @@ export function buildTransactionsCsv({
     ...expenses.map((tx) => mapRow("expense", tx)),
     ...incomes.map((tx) => mapRow("income", tx)),
     ...transfers.map(mapTransfer),
+    ...cardPayments.map((tx) => mapRow("card payment", tx)),
   ];
 
   const stamp = (monthLabel || "export").replace(/\s+/g, "-").toLowerCase();

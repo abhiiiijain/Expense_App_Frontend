@@ -1,8 +1,8 @@
 import { memo, useMemo } from "react";
 import { Doughnut } from "react-chartjs-2";
+import ChartDataLabels from "chartjs-plugin-datalabels";
 import { useCategories } from "../../config/AppConfigContext";
 import { formatCurrency } from "../../utils/formatCurrency";
-import EmptyState from "../EmptyState";
 
 /** Min share before a segment gets an on-chart % label (matches deployed). */
 const LABEL_MIN_PCT = 10;
@@ -22,11 +22,9 @@ function DoughnutChart({ categorySums }) {
         labels: active.map((category) => category.name),
         datasets: [
           {
-            data: chartTotal > 0 ? values : [1],
-            backgroundColor:
-              chartTotal > 0 ? active.map((category) => category.color) : ["#E5E7EB"],
-            hoverBackgroundColor:
-              chartTotal > 0 ? active.map((category) => category.hoverColor) : ["#E5E7EB"],
+            data: values,
+            backgroundColor: active.map((category) => category.color),
+            hoverBackgroundColor: active.map((category) => category.hoverColor),
             borderWidth: 1,
             borderColor: "#fff",
             hoverBorderColor: "#fff",
@@ -38,7 +36,6 @@ function DoughnutChart({ categorySums }) {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { display: false },
           tooltip: { enabled: false },
           datalabels: {
             display(context) {
@@ -62,18 +59,11 @@ function DoughnutChart({ categorySums }) {
     };
   }, [categorySums, expenseCategories]);
 
-  if (!hasData) {
-    return (
-      <EmptyState
-        title="No expenses this month"
-        description="Tap + to add your first expense"
-      />
-    );
-  }
+  if (!hasData) return null;
 
   return (
     <div className="relative w-full h-60 sm:h-64">
-      <Doughnut data={data} options={options} />
+      <Doughnut data={data} options={options} plugins={[ChartDataLabels]} />
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
         <div className="text-center px-3">
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">

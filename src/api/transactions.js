@@ -3,20 +3,31 @@ import { apiClient } from "./client";
 const PAGE_SIZE = 500;
 
 function txPayload(transaction) {
-  const { title, amount, category, subcategory, icon, date, accountId } = transaction;
-  return { title, amount, category, subcategory, icon, date, accountId };
+  const { title, amount, category, subcategory, icon, date, accountId, settlesAccountId } =
+    transaction;
+  return {
+    title,
+    amount,
+    category,
+    subcategory,
+    icon,
+    date,
+    accountId,
+    ...(settlesAccountId ? { settlesAccountId } : {}),
+  };
 }
 
-export async function fetchTransactions({ month, days, q, accountId } = {}) {
+export async function fetchDashboardStamp() {
+  const { data } = await apiClient.get("transactions/sync");
+  return data.stamp;
+}
+
+export async function fetchTransactions() {
   let skip = 0;
   const expenses = [];
   const incomes = [];
   const transfers = [];
   const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
-  if (month) params.set("month", month);
-  if (days) params.set("days", String(days));
-  if (q) params.set("q", q);
-  if (accountId) params.set("accountId", accountId);
 
   while (true) {
     params.set("skip", String(skip));

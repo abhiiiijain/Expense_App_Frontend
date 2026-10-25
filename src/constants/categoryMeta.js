@@ -90,6 +90,7 @@ export const SUBCATEGORY_ICONS = {
   Overtime: "⏰",
   Freelance: "🧑‍💻",
   "Client Payment": "🤝",
+  Commission: "🤝",
   Orders: "🧾",
   "Business Income": "🏪",
   Dividends: "🧾",

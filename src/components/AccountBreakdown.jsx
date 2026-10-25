@@ -1,9 +1,12 @@
 import { formatCurrency } from "../utils/formatCurrency";
 
-export function AccountBadge({ name }) {
+export function AccountBadge({ name, className = "max-w-[7rem]" }) {
   if (!name) return null;
   return (
-    <span className="inline-flex max-w-[7rem] truncate rounded-md bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-800 dark:bg-sage-600/20 dark:text-sage-200">
+    <span
+      title={name}
+      className={`inline-flex truncate rounded-md bg-sage-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sage-800 dark:bg-sage-600/20 dark:text-sage-200 ${className}`}
+    >
       {name}
     </span>
   );
@@ -28,17 +31,17 @@ export function AccountTotalsBar({ totals, tone = "expense", className = "mb-3" 
       <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted">
         By account
       </p>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2">
         {totals.map(({ id, name, total }) => (
           <div
             key={id}
-            className="flex min-w-[7.5rem] flex-1 items-center justify-between gap-2 rounded-lg bg-[var(--sw-panel)] px-2.5 py-1.5"
+            className="min-w-0 rounded-lg bg-[var(--sw-panel)] px-2.5 py-2"
             style={{ border: "1px solid var(--sw-border)" }}
           >
-            <AccountBadge name={name} />
-            <span className={`text-xs font-bold tabular-nums ${amountClass}`}>
+            <AccountBadge name={name} className="max-w-full" />
+            <p className={`mt-1 text-xs font-bold tabular-nums leading-tight ${amountClass}`}>
               {formatCurrency(tone === "expense" ? -total : total, { signed: tone === "expense" })}
-            </span>
+            </p>
           </div>
         ))}
       </div>

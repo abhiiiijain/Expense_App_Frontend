@@ -57,7 +57,7 @@
 
 @layer components {
   .sw-page {
-    @apply min-h-screen relative overflow-hidden;
+    @apply min-h-screen relative;
     background:
       radial-gradient(ellipse 70% 45% at 8% -8%, rgba(22, 163, 74, 0.14), transparent 55%),
       radial-gradient(ellipse 60% 40% at 100% 0%, rgba(37, 99, 235, 0.14), transparent 50%),
@@ -207,15 +207,9 @@ html.dark .text-ink-soft {
 html.dark .text-ink-muted {
   color: #94a3b8 !important;
 }
-html.dark .text-ink-muted\/70 {
-  color: rgb(148 163 184 / 0.7) !important;
-}
 html.dark .hover\:text-ink:hover {
   color: #f1f5f9 !important;
 }
 html.dark .hover\:text-ink-soft:hover {
   color: #e2e8f0 !important;
-}
-html.dark .placeholder\:text-ink-muted\/50::placeholder {
-  color: rgb(148 163 184 / 0.5) !important;
 }
