@@ -1,10 +1,6 @@
-import path from "path";
-import { fileURLToPath } from "url";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
-
-const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 function requiredEnv(env, name) {
   const value = env[name];
@@ -21,11 +17,6 @@ export default defineConfig(({ command, mode }) => {
   requiredEnv(env, "VITE_API_BASE_URL");
 
   const config = {
-    resolve: {
-      alias: {
-        "@shared": path.resolve(repoRoot, "shared"),
-      },
-    },
     plugins: [
       react(),
       VitePWA({
