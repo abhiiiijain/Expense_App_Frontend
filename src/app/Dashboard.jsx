@@ -43,7 +43,7 @@ import {
 } from "../utils/dateHelpers";
 import { editWindowToastMessage } from "../utils/formatEditWindow";
 import { buildTransactionsCsv } from "../utils/exportCsv";
-import { filterByCategory } from "../utils/filterTransactions";
+import { filterByAccount, filterByCategory } from "../utils/filterTransactions";
 import {
   cardPaymentSpendAdjustments,
   filterCardPaymentsForAccount,
@@ -53,6 +53,32 @@ import { toast } from "react-toastify";
 
 function isCreditAccount(account) {
   return account?.type === "credit";
+}
+
+function summaryFromMonthData(monthData, accountFilter) {
+  const rows = monthData.accounts || [];
+  if (accountFilter && accountFilter !== "all") {
+    const account = rows.find((row) => String(row.id) === String(accountFilter));
+    if (account) {
+      return {
+        monthStartOpening: account.monthStartOpening ?? monthData.monthStartOpening ?? 0,
+        statementOpening:
+          account.statementOpening ??
+          account.monthStartOpening ??
+          monthData.statementOpening ??
+          monthData.monthStartOpening ??
+          0,
+        monthEndBalance: account.monthEndBalance ?? account.balance ?? monthData.monthEndBalance ?? 0,
+        creditBill: account.creditBill || monthData.creditBill || null,
+      };
+    }
+  }
+  return {
+    monthStartOpening: monthData.monthStartOpening ?? 0,
+    statementOpening: monthData.statementOpening ?? monthData.monthStartOpening ?? 0,
+    monthEndBalance: monthData.monthEndBalance ?? 0,
+    creditBill: monthData.creditBill || null,
+  };
 }
 
 function getGreeting() {
@@ -87,9 +113,11 @@ function Dashboard() {
   const [budgetsOpen, setBudgetsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [monthStartOpening, setMonthStartOpening] = useState(0);
+  const [statementOpening, setStatementOpening] = useState(0);
   const [monthEndBalance, setMonthEndBalance] = useState(0);
   const [creditBill, setCreditBill] = useState(null);
   const [weekExpenses, setWeekExpenses] = useState([]);
+  const [ledgerScope, setLedgerScope] = useState("");
   const [lifetimeStats, setLifetimeStats] = useState({
     categorySums: {},
     subcategorySums: {},
@@ -111,20 +139,37 @@ function Dashboard() {
   const viewingCredit = isCreditAccount(selectedAccount);
   const creditCycle = creditCycleForAccount(selectedAccount);
   const periodCycle = creditCycle || "calendar";
+  const expectedLedgerScope = viewingCredit
+    ? `credit::${accountFilter}::${monthKey}`
+    : `all::${monthKey}`;
+  const ledgerMatchesView = ledgerScope === expectedLedgerScope;
+  const sourceExpenses = ledgerMatchesView ? expenses : [];
+  const sourceIncomes = ledgerMatchesView ? incomes : [];
+  const sourceTransfers = ledgerMatchesView ? transfers : [];
 
   const { consumptionExpenses, cardPaymentExpenses } = useMemo(() => {
     const consumption = [];
     const payments = [];
-    for (const expense of expenses) {
+    for (const expense of sourceExpenses) {
       if (isCardPaymentExpense(expense)) payments.push(expense);
-      else consumption.push(expense);
+      else if (accountFilter === "all" || String(expense.accountId) === String(accountFilter)) {
+        consumption.push(expense);
+      }
     }
     return { consumptionExpenses: consumption, cardPaymentExpenses: payments };
-  }, [expenses]);
+  }, [accountFilter, sourceExpenses]);
 
   const monthCardPayments = useMemo(
     () => filterCardPaymentsForAccount(cardPaymentExpenses, accountFilter, accounts),
     [accountFilter, accounts, cardPaymentExpenses]
+  );
+  const monthIncomes = useMemo(
+    () => filterByAccount(sourceIncomes, accountFilter),
+    [accountFilter, sourceIncomes]
+  );
+  const monthTransfers = useMemo(
+    () => filterByAccount(sourceTransfers, accountFilter),
+    [accountFilter, sourceTransfers]
   );
   const overviewMonthExpenses = useMemo(
     () => filterByCategory(consumptionExpenses, expenseCategory, expenseSubcategory),
@@ -133,18 +178,23 @@ function Dashboard() {
   const weekOverviewExpenses = useMemo(
     () =>
       filterByCategory(
-        weekExpenses.filter((expense) => !isCardPaymentExpense(expense)),
+        weekExpenses
+          .filter((expense) => !isCardPaymentExpense(expense))
+          .filter(
+            (expense) =>
+              accountFilter === "all" || String(expense.accountId) === String(accountFilter)
+          ),
         expenseCategory,
         expenseSubcategory
       ),
-    [weekExpenses, expenseCategory, expenseSubcategory]
+    [accountFilter, weekExpenses, expenseCategory, expenseSubcategory]
   );
 
   const categorySums = useCategorySums(overviewMonthExpenses, expenseCategoryNames);
   const monthBudgetSums = useCategorySums(consumptionExpenses, expenseCategoryNames);
   const monthExpenseTotal = useMonthTotal(consumptionExpenses);
   const overviewMonthExpenseTotal = useMonthTotal(overviewMonthExpenses);
-  const monthIncomeTotal = useMonthTotal(incomes);
+  const monthIncomeTotal = useMonthTotal(monthIncomes);
   const cardSpendAdjustments = useMemo(
     () =>
       accountFilter === "all"
@@ -154,59 +204,120 @@ function Dashboard() {
   );
   const lifetimeCategorySums = lifetimeStats.categorySums || {};
   const lifetimeExpenseTotal = lifetimeStats.total || 0;
+  const headerSummary = viewingCredit
+    ? { monthStartOpening, statementOpening, monthEndBalance, creditBill }
+    : summaryFromMonthData(
+        { accounts, monthStartOpening, statementOpening, monthEndBalance, creditBill },
+        accountFilter
+      );
 
   const handleExpenseCategoryChange = useCallback((category) => {
     setExpenseCategory(category);
     setExpenseSubcategory("All");
   }, []);
 
-  const loadLedger = useCallback(async () => {
+  const accountsRef = useRef(accounts);
+  accountsRef.current = accounts;
+  const ledgerCacheRef = useRef(new Map());
+  const weekCacheRef = useRef(new Map());
+  const statsCacheRef = useRef(new Map());
+  const loadGenRef = useRef(0);
+
+  const loadLedger = useCallback(async ({ force = false } = {}) => {
+    const gen = ++loadGenRef.current;
     const today = formatDateKey(new Date());
     const weekFrom = formatDateKey(subDays(new Date(), 6));
-    const monthData = await fetchMonthTransactions({ monthKey, accountId: accountFilter });
-    const rows = monthData.accounts || [];
     const selected =
       accountFilter === "all"
         ? null
-        : rows.find((account) => String(account.id) === String(accountFilter));
-    const weekCoveredByMonth =
-      !creditCycleForAccount(selected) &&
-      monthKey === getMonthKey() &&
-      weekFrom.slice(0, 7) === monthKey;
+        : accountsRef.current.find((account) => String(account.id) === String(accountFilter));
+    const credit = isCreditAccount(selected);
+    const monthCacheKey = credit ? `credit::${accountFilter}::${monthKey}` : `all::${monthKey}`;
+    const weekCacheKey = `${weekFrom}::${today}`;
 
+    let monthData = !force ? ledgerCacheRef.current.get(monthCacheKey) : undefined;
+    if (!monthData) {
+      monthData = await fetchMonthTransactions({
+        monthKey,
+        accountId: credit ? accountFilter : undefined,
+      });
+      if (gen !== loadGenRef.current) return;
+      ledgerCacheRef.current.set(monthCacheKey, monthData);
+    } else if (gen !== loadGenRef.current) {
+      return;
+    }
+
+    const selectedFromPayload =
+      accountFilter === "all"
+        ? null
+        : (monthData.accounts || []).find(
+            (account) => String(account.id) === String(accountFilter)
+          );
+    if (isCreditAccount(selectedFromPayload) && !credit) {
+      const creditKey = `credit::${accountFilter}::${monthKey}`;
+      let creditData = !force ? ledgerCacheRef.current.get(creditKey) : undefined;
+      if (!creditData) {
+        creditData = await fetchMonthTransactions({ monthKey, accountId: accountFilter });
+        if (gen !== loadGenRef.current) return;
+        ledgerCacheRef.current.set(creditKey, creditData);
+      } else if (gen !== loadGenRef.current) {
+        return;
+      }
+      monthData = creditData;
+    }
+
+    const rows = monthData.accounts || [];
+    const summary = summaryFromMonthData(monthData, accountFilter);
     setAccounts(rows);
     setHasTransactions(Boolean(monthData.hasTransactions));
     setExpenses(monthData.expenses || []);
     setIncomes(monthData.incomes || []);
     setTransfers(monthData.transfers || []);
-    setMonthStartOpening(monthData.monthStartOpening ?? 0);
-    setMonthEndBalance(monthData.monthEndBalance ?? 0);
-    setCreditBill(monthData.creditBill || null);
+    setMonthStartOpening(summary.monthStartOpening);
+    setStatementOpening(summary.statementOpening);
+    setMonthEndBalance(summary.monthEndBalance);
+    setCreditBill(summary.creditBill);
+    const usingCredit = isCreditAccount(
+      accountFilter === "all"
+        ? null
+        : rows.find((account) => String(account.id) === String(accountFilter))
+    );
+    setLedgerScope(usingCredit ? `credit::${accountFilter}::${monthKey}` : `all::${monthKey}`);
+
+    const weekCoveredByMonth =
+      !usingCredit && monthKey === getMonthKey() && weekFrom.slice(0, 7) === monthKey;
 
     if (weekCoveredByMonth) {
-      setWeekExpenses(
-        (monthData.expenses || []).filter((tx) => {
-          const key = formatDateKey(new Date(tx.date || tx.createdAt));
-          return key >= weekFrom && key <= today;
-        })
-      );
+      const nextWeekExpenses = (monthData.expenses || []).filter((tx) => {
+        const key = formatDateKey(new Date(tx.date || tx.createdAt));
+        return key >= weekFrom && key <= today;
+      });
+      setWeekExpenses(nextWeekExpenses);
+      weekCacheRef.current.set(weekCacheKey, nextWeekExpenses);
       return;
     }
 
-    const week = await fetchTransactionsRange({
-      from: weekFrom,
-      to: today,
-      accountId: accountFilter,
-    });
-    setWeekExpenses(week.expenses || []);
+    let nextWeekExpenses = !force ? weekCacheRef.current.get(weekCacheKey) : undefined;
+    if (!nextWeekExpenses) {
+      const week = await fetchTransactionsRange({ from: weekFrom, to: today });
+      if (gen !== loadGenRef.current) return;
+      nextWeekExpenses = week.expenses || [];
+      weekCacheRef.current.set(weekCacheKey, nextWeekExpenses);
+    }
+    setWeekExpenses(nextWeekExpenses);
   }, [accountFilter, monthKey]);
 
-  const loadStats = useCallback(async () => {
-    const stats = await fetchSpendingStats({
-      accountId: accountFilter,
-      category: expenseCategory,
-      subcategory: expenseSubcategory,
-    });
+  const loadStats = useCallback(async ({ force = false } = {}) => {
+    const statsKey = `${accountFilter}::${expenseCategory}::${expenseSubcategory}`;
+    let stats = !force ? statsCacheRef.current.get(statsKey) : undefined;
+    if (!stats) {
+      stats = await fetchSpendingStats({
+        accountId: accountFilter,
+        category: expenseCategory,
+        subcategory: expenseSubcategory,
+      });
+      statsCacheRef.current.set(statsKey, stats);
+    }
     setLifetimeStats({
       categorySums: stats.categorySums || {},
       subcategorySums: stats.subcategorySums || {},
@@ -214,6 +325,13 @@ function Dashboard() {
       total: stats.total || 0,
     });
   }, [accountFilter, expenseCategory, expenseSubcategory]);
+
+  const reloadLedger = useCallback(async () => {
+    ledgerCacheRef.current.clear();
+    weekCacheRef.current.clear();
+    statsCacheRef.current.clear();
+    await Promise.all([loadLedger({ force: true }), loadStats({ force: true })]);
+  }, [loadLedger, loadStats]);
 
   const loadLedgerRef = useRef(loadLedger);
   const loadStatsRef = useRef(loadStats);
@@ -253,7 +371,13 @@ function Dashboard() {
         const next = await fetchDashboardStamp();
         if (cancelled || next === stamp) return;
         stamp = next;
-        await Promise.all([loadLedgerRef.current(), loadStatsRef.current()]);
+        ledgerCacheRef.current.clear();
+        weekCacheRef.current.clear();
+        statsCacheRef.current.clear();
+        await Promise.all([
+          loadLedgerRef.current({ force: true }),
+          loadStatsRef.current({ force: true }),
+        ]);
       } finally {
         inFlight = false;
       }
@@ -265,14 +389,10 @@ function Dashboard() {
       })
       .catch(() => {});
 
-    const id = setInterval(refresh, 2000);
     document.addEventListener("visibilitychange", refresh);
-    window.addEventListener("focus", refresh);
     return () => {
       cancelled = true;
-      clearInterval(id);
       document.removeEventListener("visibilitychange", refresh);
-      window.removeEventListener("focus", refresh);
     };
   }, []);
 
@@ -331,14 +451,14 @@ function Dashboard() {
         setUser((prev) => ({ ...prev, ...updated }));
         setOpeningModalOpen(false);
         setOpeningModalRequired(false);
-        await loadLedger();
+        await reloadLedger();
         toast.success("Opening balance saved", { position: "top-center" });
       } catch (error) {
         toast.error(error?.response?.data?.message || "Could not save opening balance");
         throw error;
       }
     },
-    [setUser, loadLedger]
+    [setUser, reloadLedger]
   );
 
   const openAddModal = useCallback(() => {
@@ -381,7 +501,7 @@ function Dashboard() {
           setTransfers((prev) => [data, ...prev]);
           setHasTransactions(true);
           toast.success("Transfer recorded", { position: "top-center" });
-          await loadLedger();
+          await reloadLedger();
           return;
         } catch (error) {
           toast.error(error?.response?.data?.message || "Could not save transfer");
@@ -402,7 +522,7 @@ function Dashboard() {
           else setExpenses(updater);
 
           toast.success("Updated", { position: "top-center" });
-          await loadLedger();
+          await reloadLedger();
           return;
         }
 
@@ -412,7 +532,7 @@ function Dashboard() {
         setHasTransactions(true);
 
         toast.success(isIncome ? "Income added" : "Expense added", { position: "top-center" });
-        await loadLedger();
+        await reloadLedger();
       } catch (error) {
         toast.error(
           error?.response?.data?.message ||
@@ -421,7 +541,7 @@ function Dashboard() {
         throw error;
       }
     },
-    [loadLedger]
+    [reloadLedger]
   );
 
   const removeTransaction = useCallback(
@@ -434,13 +554,13 @@ function Dashboard() {
           setExpenses((prev) => prev.filter((expense) => expense._id !== id));
         }
         toast.success("Deleted", { position: "top-center" });
-        await loadLedger();
+        await reloadLedger();
       } catch (error) {
         toast.error(error?.response?.data?.message || "Could not delete");
         throw error;
       }
     },
-    [loadLedger]
+    [reloadLedger]
   );
 
   const removeTransfer = useCallback(
@@ -449,13 +569,13 @@ function Dashboard() {
         await deleteTransferRequest(id);
         setTransfers((prev) => prev.filter((row) => row._id !== id));
         toast.success("Transfer deleted", { position: "top-center" });
-        await loadLedger();
+        await reloadLedger();
       } catch (error) {
         toast.error(error?.response?.data?.message || "Could not delete transfer");
         throw error;
       }
     },
-    [loadLedger]
+    [reloadLedger]
   );
 
   const deleteExpense = useCallback((id) => removeTransaction("expense", id), [removeTransaction]);
@@ -473,14 +593,14 @@ function Dashboard() {
   const exportMonth = useCallback(() => {
     buildTransactionsCsv({
       expenses: consumptionExpenses,
-      incomes,
-      transfers,
+      incomes: monthIncomes,
+      transfers: monthTransfers,
       cardPayments: monthCardPayments,
       accounts,
       monthLabel: formatMonthLabel(monthKey),
     });
     toast.success("CSV downloaded", { position: "top-center" });
-  }, [accounts, consumptionExpenses, incomes, monthCardPayments, monthKey, transfers]);
+  }, [accounts, consumptionExpenses, monthCardPayments, monthIncomes, monthKey, monthTransfers]);
 
   const displayName =
     ((user.firstName || "") + " " + (user.lastName || "")).trim() || user.email;
@@ -686,10 +806,10 @@ function Dashboard() {
             <SummaryCards
               totalIncome={monthIncomeTotal}
               totalExpense={monthExpenseTotal}
-              openingBalance={monthStartOpening}
-              accountBalance={monthEndBalance}
+              openingBalance={headerSummary.monthStartOpening}
+              accountBalance={headerSummary.monthEndBalance}
               isCredit={viewingCredit}
-              creditBill={creditBill}
+              creditBill={headerSummary.creditBill}
               periodNote={
                 creditCycle ? formatCreditDueLabel(monthKey, periodCycle) : null
               }
@@ -775,8 +895,8 @@ function Dashboard() {
                 <div className="xl:absolute xl:inset-0 flex">
                   <Transactions
                     expenses={consumptionExpenses}
-                    incomes={incomes}
-                    transfers={transfers}
+                    incomes={monthIncomes}
+                    transfers={monthTransfers}
                     cardPayments={monthCardPayments}
                     accounts={accounts}
                     accountFilter={accountFilter}
@@ -789,8 +909,9 @@ function Dashboard() {
                     onDeleteExpense={deleteExpense}
                     onDeleteIncome={deleteIncome}
                     onDeleteTransfer={removeTransfer}
-                    monthStartOpening={monthStartOpening}
-                    monthEndBalance={monthEndBalance}
+                    monthStartOpening={headerSummary.monthStartOpening}
+                    statementOpening={headerSummary.statementOpening}
+                    monthEndBalance={headerSummary.monthEndBalance}
                     isCredit={viewingCredit}
                   />
                 </div>
@@ -824,7 +945,7 @@ function Dashboard() {
         open={accountsOpen}
         onClose={() => setAccountsOpen(false)}
         accounts={accounts}
-        onChanged={loadLedger}
+        onChanged={reloadLedger}
       />
 
       <BudgetModal

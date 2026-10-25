@@ -337,16 +337,16 @@ function DateGroups({ grouped, emptyTitle, emptyDescription, renderRow, dateMeta
         const rows = grouped[date];
         const meta = dateMeta?.(date, rows);
         return (
-          <section key={date}>
-            <h4
+        <section key={date}>
+          <h4
               className="flex items-center justify-between gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted mb-1.5 px-2.5 sticky top-0 z-[1] py-1.5 backdrop-blur-sm"
-              style={{ background: "color-mix(in srgb, var(--sw-panel) 92%, transparent)" }}
-            >
+            style={{ background: "color-mix(in srgb, var(--sw-panel) 92%, transparent)" }}
+          >
               <span>{formatRelativeDateLabel(transactionDate(rows[0]))}</span>
               {meta ? <span className="font-medium normal-case tracking-normal">{meta}</span> : null}
-            </h4>
+          </h4>
             <div className="space-y-0.5">{rows.map(renderRow)}</div>
-          </section>
+        </section>
         );
       })}
     </div>
@@ -370,6 +370,7 @@ const Transactions = ({
   onDeleteIncome,
   onDeleteTransfer,
   monthStartOpening,
+  statementOpening,
   monthEndBalance,
   isCredit = false,
 }) => {
@@ -479,7 +480,7 @@ const Transactions = ({
     if (searching || tab !== "statement") return [];
     return withStatementBalances(
       [...filteredExpenses, ...filteredIncomes, ...filteredTransfers, ...filteredCardPayments],
-      monthStartOpening,
+      statementOpening ?? monthStartOpening,
       accountFilter,
       accounts
     );
@@ -492,6 +493,7 @@ const Transactions = ({
     filteredTransfers,
     monthStartOpening,
     searching,
+    statementOpening,
     tab,
   ]);
 
@@ -564,7 +566,7 @@ const Transactions = ({
     let title = transaction.title;
     if (type === "transfer") {
       title = `${accountNameById[String(transaction.fromAccountId)] || "From"} → ${
-        accountNameById[String(transaction.toAccountId)] || "To"
+              accountNameById[String(transaction.toAccountId)] || "To"
       }`;
     } else if (type === "cardPayment") {
       const route = cardPaymentRoute(transaction, accounts);
@@ -676,36 +678,36 @@ const Transactions = ({
               Filter by category
             </label>
             <div className="relative">
-              <select
-                id="activity-category-filter"
-                value={selectedMain}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  if (isExpense) {
+            <select
+              id="activity-category-filter"
+              value={selectedMain}
+              onChange={(e) => {
+                const value = e.target.value;
+                if (isExpense) {
                     onExpenseCategoryChange?.(value);
-                  } else {
-                    setSelectedIncomeMainCategory(value);
-                    setSelectedIncomeSubcategory("All");
-                  }
-                }}
+                } else {
+                  setSelectedIncomeMainCategory(value);
+                  setSelectedIncomeSubcategory("All");
+                }
+              }}
                 className={`sw-input py-2 text-sm appearance-none bg-[length:1rem] bg-[right_0.75rem_center] bg-no-repeat ${
                   categoryFiltered ? "pr-16" : "pr-9"
                 } ${
-                  isExpense
-                    ? "border-rose-200 text-rose-800 focus:ring-rose-500/25 focus:border-rose-500 dark:border-rose-500/30 dark:text-rose-300"
-                    : "border-emerald-200 text-emerald-800 focus:ring-emerald-500/25 focus:border-emerald-500 dark:border-emerald-500/30 dark:text-emerald-300"
-                }`}
-                style={{
-                  backgroundImage:
-                    "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\")",
-                }}
-              >
-                {filterCategories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+                isExpense
+                  ? "border-rose-200 text-rose-800 focus:ring-rose-500/25 focus:border-rose-500 dark:border-rose-500/30 dark:text-rose-300"
+                  : "border-emerald-200 text-emerald-800 focus:ring-emerald-500/25 focus:border-emerald-500 dark:border-emerald-500/30 dark:text-emerald-300"
+              }`}
+              style={{
+                backgroundImage:
+                  "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E\")",
+              }}
+            >
+              {filterCategories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
               {categoryFiltered ? (
                 <button
                   type="button"
@@ -786,7 +788,7 @@ const Transactions = ({
               amount={monthEndBalance}
             />
           )}
-        </div>
+                </div>
       ) : isTransfer ? (
         <DateGroups
           grouped={groupedTransfers}
