@@ -3,18 +3,9 @@ import {
   formatChartDateLabel,
   formatChartDayTooltip,
   formatDateKey,
-  isInPeriod,
   subDays,
   transactionDate,
 } from "../utils/dateHelpers";
-
-/** Client month filter — GET /transactions returns the full history. */
-export function useMonthItems(items, monthKey, cycle = "calendar") {
-  return useMemo(
-    () => items.filter((item) => isInPeriod(transactionDate(item), monthKey, cycle)),
-    [cycle, items, monthKey]
-  );
-}
 
 export function useMonthTotal(items) {
   return useMemo(() => items.reduce((sum, item) => sum + item.amount, 0), [items]);

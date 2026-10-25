@@ -1,7 +1,5 @@
 import { apiClient } from "./client";
 
-const PAGE_SIZE = 500;
-
 function txPayload(transaction) {
   const { title, amount, category, subcategory, icon, date, accountId, settlesAccountId } =
     transaction;
@@ -17,44 +15,64 @@ function txPayload(transaction) {
   };
 }
 
+function withQuery(params) {
+  const search = new URLSearchParams();
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === "") return;
+    search.set(key, String(value));
+  });
+  const qs = search.toString();
+  return qs ? `?${qs}` : "";
+}
+
 export async function fetchDashboardStamp() {
   const { data } = await apiClient.get("transactions/sync");
   return data.stamp;
 }
 
-export async function fetchTransactions() {
-  let skip = 0;
-  const expenses = [];
-  const incomes = [];
-  const transfers = [];
-  const params = new URLSearchParams({ limit: String(PAGE_SIZE) });
+export async function fetchMonthTransactions({ monthKey, accountId } = {}) {
+  const { data } = await apiClient.get(
+    `transactions${withQuery({
+      monthKey,
+      accountId: accountId && accountId !== "all" ? accountId : undefined,
+    })}`
+  );
+  return data;
+}
 
-  while (true) {
-    params.set("skip", String(skip));
-    const { data } = await apiClient.get(`transactions?${params.toString()}`);
-    expenses.push(...data.expenses);
-    incomes.push(...data.incomes);
-    transfers.push(...(data.transfers || []));
+export async function searchTransactions(query) {
+  const { data } = await apiClient.get(`transactions${withQuery({ q: query })}`);
+  return {
+    expenses: data.expenses || [],
+    incomes: data.incomes || [],
+    transfers: data.transfers || [],
+  };
+}
 
-    const expenseTotal = data.meta?.expenseTotal ?? expenses.length;
-    const incomeTotal = data.meta?.incomeTotal ?? incomes.length;
-    const transferTotal = data.meta?.transferTotal ?? transfers.length;
+export async function fetchTransactionsRange({ from, to, accountId } = {}) {
+  const { data } = await apiClient.get(
+    `transactions${withQuery({
+      from,
+      to,
+      accountId: accountId && accountId !== "all" ? accountId : undefined,
+    })}`
+  );
+  return {
+    expenses: data.expenses || [],
+    incomes: data.incomes || [],
+    transfers: data.transfers || [],
+  };
+}
 
-    const loadedAllExpenses =
-      data.expenses.length < PAGE_SIZE || expenses.length >= expenseTotal;
-    const loadedAllIncomes =
-      data.incomes.length < PAGE_SIZE || incomes.length >= incomeTotal;
-    const loadedAllTransfers =
-      (data.transfers?.length ?? 0) < PAGE_SIZE || transfers.length >= transferTotal;
-
-    if (loadedAllExpenses && loadedAllIncomes && loadedAllTransfers) {
-      break;
-    }
-
-    skip += PAGE_SIZE;
-  }
-
-  return { expenses, incomes, transfers };
+export async function fetchSpendingStats({ accountId, category, subcategory } = {}) {
+  const { data } = await apiClient.get(
+    `transactions/stats${withQuery({
+      accountId: accountId && accountId !== "all" ? accountId : undefined,
+      category: category && category !== "All" ? category : undefined,
+      subcategory: subcategory && subcategory !== "All" ? subcategory : undefined,
+    })}`
+  );
+  return data;
 }
 
 export async function createTransaction(transaction) {

@@ -1,14 +1,13 @@
 import { useMemo } from "react";
 import { formatCurrency } from "../../utils/formatCurrency";
 import { clampBarWidth } from "../../utils/clampBarWidth";
-import { formatMonthLabel, getMonthKey, transactionDate } from "../../utils/dateHelpers";
+import { formatMonthLabel } from "../../utils/dateHelpers";
 
-function MonthlySpendList({ expenses }) {
+function MonthlySpendList({ monthlyTotals = [] }) {
   const rows = useMemo(() => {
     const sums = {};
-    expenses.forEach((expense) => {
-      const key = getMonthKey(transactionDate(expense));
-      sums[key] = (sums[key] || 0) + expense.amount;
+    monthlyTotals.forEach((row) => {
+      sums[row.monthKey] = row.total;
     });
 
     const amounts = Object.values(sums);
@@ -26,7 +25,7 @@ function MonthlySpendList({ expenses }) {
           barWidth: clampBarWidth(pct),
         };
       });
-  }, [expenses]);
+  }, [monthlyTotals]);
 
   if (rows.length === 0) return null;
 

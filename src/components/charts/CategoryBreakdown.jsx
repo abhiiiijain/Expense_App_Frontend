@@ -147,6 +147,7 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen, scop
 function MonthCategoryContent({
   expenses,
   categorySums,
+  subcategorySums,
   monthTotal,
   onSelectDetail,
   scopeLabel,
@@ -161,11 +162,17 @@ function MonthCategoryContent({
     const empty = expenseCategories.filter((c) => !categorySums[c.name]);
 
     const breakdownMap = {};
-    expenses.forEach((expense) => {
-      if (!breakdownMap[expense.category]) breakdownMap[expense.category] = {};
-      breakdownMap[expense.category][expense.subcategory] =
-        (breakdownMap[expense.category][expense.subcategory] || 0) + expense.amount;
-    });
+    if (subcategorySums) {
+      Object.entries(subcategorySums).forEach(([category, subs]) => {
+        breakdownMap[category] = { ...subs };
+      });
+    } else {
+      expenses.forEach((expense) => {
+        if (!breakdownMap[expense.category]) breakdownMap[expense.category] = {};
+        breakdownMap[expense.category][expense.subcategory] =
+          (breakdownMap[expense.category][expense.subcategory] || 0) + expense.amount;
+      });
+    }
 
     const subcategoryBreakdowns = Object.fromEntries(
       Object.entries(breakdownMap).map(([category, subs]) => [
@@ -181,7 +188,7 @@ function MonthCategoryContent({
       emptyCategories: empty,
       subcategoryBreakdowns,
     };
-  }, [expenses, categorySums, expenseCategories]);
+  }, [expenses, categorySums, subcategorySums, expenseCategories]);
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-5">
@@ -247,6 +254,7 @@ function MonthCategoryContent({
 function CategoryBreakdown({
   expenses: monthlyExpenses,
   categorySums,
+  subcategorySums,
   monthTotal,
   accounts = [],
   accountFilter = "all",
@@ -285,6 +293,7 @@ function CategoryBreakdown({
           <MonthCategoryContent
             expenses={monthlyExpenses}
             categorySums={categorySums}
+            subcategorySums={subcategorySums}
             monthTotal={monthTotal}
             onSelectDetail={setSelectedDetail}
             scopeLabel={scopeLabel}

@@ -14,24 +14,21 @@ import ProfileSecurityModal from "../components/ProfileSecurityModal";
 import OnboardingChecklist from "../components/OnboardingChecklist";
 import { updateOpeningBalance } from "../auth/authService";
 import {
-  fetchTransactions,
+  fetchMonthTransactions,
+  fetchTransactionsRange,
+  fetchSpendingStats,
   fetchDashboardStamp,
   createTransaction,
   updateTransaction as updateTransactionRequest,
   deleteTransaction as deleteTransactionRequest,
 } from "../api/transactions";
 import { createTransfer, deleteTransfer as deleteTransferRequest } from "../api/transfers";
-import { fetchAccounts } from "../api/accounts";
 import { useAuth } from "../auth/AuthContext";
 import { useAppConfig } from "../config/AppConfigContext";
 import { useTheme } from "../config/ThemeContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { usePwaInstall } from "../hooks/usePwaInstall";
-import {
-  useCategorySums,
-  useMonthItems,
-  useMonthTotal,
-} from "../hooks/useExpenseAnalytics";
+import { useCategorySums, useMonthTotal } from "../hooks/useExpenseAnalytics";
 import MonthlySpendList from "../components/charts/MonthlySpendList";
 import BrandLogo from "../components/BrandLogo";
 import {
@@ -41,12 +38,12 @@ import {
   formatCreditDueLabel,
   formatCreditStatementHint,
   creditCycleForAccount,
+  formatDateKey,
+  subDays,
 } from "../utils/dateHelpers";
-import { getCreditBillPaymentStatus } from "../utils/creditStatement";
 import { editWindowToastMessage } from "../utils/formatEditWindow";
 import { buildTransactionsCsv } from "../utils/exportCsv";
-import { filterByAccount, filterByCategory } from "../utils/filterTransactions";
-import { activityFromMonth, rewindBalance } from "../utils/monthBalances";
+import { filterByCategory } from "../utils/filterTransactions";
 import {
   cardPaymentSpendAdjustments,
   filterCardPaymentsForAccount,
@@ -89,6 +86,16 @@ function Dashboard() {
   const [accountsOpen, setAccountsOpen] = useState(false);
   const [budgetsOpen, setBudgetsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [monthStartOpening, setMonthStartOpening] = useState(0);
+  const [monthEndBalance, setMonthEndBalance] = useState(0);
+  const [creditBill, setCreditBill] = useState(null);
+  const [weekExpenses, setWeekExpenses] = useState([]);
+  const [lifetimeStats, setLifetimeStats] = useState({
+    categorySums: {},
+    subcategorySums: {},
+    monthlyTotals: [],
+    total: 0,
+  });
 
   const defaultAccount = accounts.find((a) => a.isDefault) || accounts[0];
   const defaultAccountId = defaultAccount?.id || "";
@@ -115,42 +122,29 @@ function Dashboard() {
     return { consumptionExpenses: consumption, cardPaymentExpenses: payments };
   }, [expenses]);
 
-  const scopedExpenses = useMemo(
-    () => filterByAccount(consumptionExpenses, accountFilter),
-    [accountFilter, consumptionExpenses]
-  );
-
-  const scopedCardPayments = useMemo(
+  const monthCardPayments = useMemo(
     () => filterCardPaymentsForAccount(cardPaymentExpenses, accountFilter, accounts),
     [accountFilter, accounts, cardPaymentExpenses]
   );
-
-  const scopedIncomes = useMemo(
-    () => filterByAccount(incomes, accountFilter),
-    [accountFilter, incomes]
+  const overviewMonthExpenses = useMemo(
+    () => filterByCategory(consumptionExpenses, expenseCategory, expenseSubcategory),
+    [consumptionExpenses, expenseCategory, expenseSubcategory]
   );
-
-  const scopedTransfers = useMemo(
-    () => filterByAccount(transfers, accountFilter),
-    [accountFilter, transfers]
+  const weekOverviewExpenses = useMemo(
+    () =>
+      filterByCategory(
+        weekExpenses.filter((expense) => !isCardPaymentExpense(expense)),
+        expenseCategory,
+        expenseSubcategory
+      ),
+    [weekExpenses, expenseCategory, expenseSubcategory]
   );
-
-  const overviewExpenses = useMemo(
-    () => filterByCategory(scopedExpenses, expenseCategory, expenseSubcategory),
-    [scopedExpenses, expenseCategory, expenseSubcategory]
-  );
-
-  const monthExpenses = useMonthItems(scopedExpenses, monthKey, periodCycle);
-  const monthCardPayments = useMonthItems(scopedCardPayments, monthKey, periodCycle);
-  const monthIncomes = useMonthItems(scopedIncomes, monthKey, periodCycle);
-  const monthTransfers = useMonthItems(scopedTransfers, monthKey, periodCycle);
-  const overviewMonthExpenses = useMonthItems(overviewExpenses, monthKey, periodCycle);
 
   const categorySums = useCategorySums(overviewMonthExpenses, expenseCategoryNames);
-  const monthBudgetSums = useCategorySums(monthExpenses, expenseCategoryNames);
-  const monthExpenseTotal = useMonthTotal(monthExpenses);
+  const monthBudgetSums = useCategorySums(consumptionExpenses, expenseCategoryNames);
+  const monthExpenseTotal = useMonthTotal(consumptionExpenses);
   const overviewMonthExpenseTotal = useMonthTotal(overviewMonthExpenses);
-  const monthIncomeTotal = useMonthTotal(monthIncomes);
+  const monthIncomeTotal = useMonthTotal(incomes);
   const cardSpendAdjustments = useMemo(
     () =>
       accountFilter === "all"
@@ -158,116 +152,129 @@ function Dashboard() {
         : { outside: 0, unmatched: 0 },
     [accountFilter, accounts, monthCardPayments]
   );
-  const { monthStartOpening, monthEndBalance, creditBill } = useMemo(() => {
-    const accountIds =
-      accountFilter === "all" ? accounts.map((account) => account.id) : [accountFilter];
-    const current =
-      accountFilter === "all"
-        ? accounts.reduce((sum, account) => sum + (account.balance || 0), 0)
-        : selectedAccount?.balance || 0;
-    const creditAccounts = accounts.filter((account) => isCreditAccount(account));
-    const { fromThisMonth, afterThisMonth } = activityFromMonth(
-      incomes,
-      expenses,
-      transfers,
-      accountIds,
-      monthKey,
-      creditAccounts,
-      periodCycle
-    );
-    const monthStartOpening = rewindBalance(current, fromThisMonth);
-    const monthEndBalance = rewindBalance(current, afterThisMonth);
-    const creditBill =
-      creditCycle && selectedAccount
-        ? getCreditBillPaymentStatus({
-            monthKey,
-            closingBalance: monthEndBalance,
-            expenses,
-            transfers,
-            creditAccount: selectedAccount,
-            creditAccounts,
-            cycle: periodCycle,
-          })
-        : null;
-    return { monthStartOpening, monthEndBalance, creditBill };
-  }, [
-    accountFilter,
-    accounts,
-    creditCycle,
-    expenses,
-    incomes,
-    monthKey,
-    periodCycle,
-    selectedAccount,
-    transfers,
-  ]);
-  const lifetimeCategorySums = useCategorySums(overviewExpenses, expenseCategoryNames);
-  const lifetimeExpenseTotal = useMonthTotal(overviewExpenses);
+  const lifetimeCategorySums = lifetimeStats.categorySums || {};
+  const lifetimeExpenseTotal = lifetimeStats.total || 0;
 
   const handleExpenseCategoryChange = useCallback((category) => {
     setExpenseCategory(category);
     setExpenseSubcategory("All");
   }, []);
 
-  const loadAccounts = useCallback(async () => {
-    const { accounts: rows, hasTransactions: flag } = await fetchAccounts();
-    setAccounts(rows);
-    setHasTransactions(flag);
-    return rows;
-  }, []);
+  const loadLedger = useCallback(async () => {
+    const today = formatDateKey(new Date());
+    const weekFrom = formatDateKey(subDays(new Date(), 6));
+    const monthData = await fetchMonthTransactions({ monthKey, accountId: accountFilter });
+    const rows = monthData.accounts || [];
+    const selected =
+      accountFilter === "all"
+        ? null
+        : rows.find((account) => String(account.id) === String(accountFilter));
+    const weekCoveredByMonth =
+      !creditCycleForAccount(selected) &&
+      monthKey === getMonthKey() &&
+      weekFrom.slice(0, 7) === monthKey;
 
-  const loadTransactions = useCallback(async () => {
-    const data = await fetchTransactions();
-    setExpenses(data.expenses);
-    setIncomes(data.incomes);
-    setTransfers(data.transfers || []);
-  }, []);
+    setAccounts(rows);
+    setHasTransactions(Boolean(monthData.hasTransactions));
+    setExpenses(monthData.expenses || []);
+    setIncomes(monthData.incomes || []);
+    setTransfers(monthData.transfers || []);
+    setMonthStartOpening(monthData.monthStartOpening ?? 0);
+    setMonthEndBalance(monthData.monthEndBalance ?? 0);
+    setCreditBill(monthData.creditBill || null);
+
+    if (weekCoveredByMonth) {
+      setWeekExpenses(
+        (monthData.expenses || []).filter((tx) => {
+          const key = formatDateKey(new Date(tx.date || tx.createdAt));
+          return key >= weekFrom && key <= today;
+        })
+      );
+      return;
+    }
+
+    const week = await fetchTransactionsRange({
+      from: weekFrom,
+      to: today,
+      accountId: accountFilter,
+    });
+    setWeekExpenses(week.expenses || []);
+  }, [accountFilter, monthKey]);
+
+  const loadStats = useCallback(async () => {
+    const stats = await fetchSpendingStats({
+      accountId: accountFilter,
+      category: expenseCategory,
+      subcategory: expenseSubcategory,
+    });
+    setLifetimeStats({
+      categorySums: stats.categorySums || {},
+      subcategorySums: stats.subcategorySums || {},
+      monthlyTotals: stats.monthlyTotals || [],
+      total: stats.total || 0,
+    });
+  }, [accountFilter, expenseCategory, expenseSubcategory]);
+
+  const loadLedgerRef = useRef(loadLedger);
+  const loadStatsRef = useRef(loadStats);
+  loadLedgerRef.current = loadLedger;
+  loadStatsRef.current = loadStats;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        await loadLedger();
+      } catch {
+        if (!cancelled) toast.error("Could not load dashboard data");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [loadLedger]);
+
+  useEffect(() => {
+    loadStats().catch(() => {});
+  }, [loadStats]);
 
   useEffect(() => {
     let cancelled = false;
     let stamp = "";
     let inFlight = false;
 
-    const refresh = async ({ initial = false } = {}) => {
+    const refresh = async () => {
       if (cancelled || inFlight) return;
-      if (!initial && document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible") return;
       inFlight = true;
       try {
-        if (initial) {
-          await Promise.all([loadTransactions(), loadAccounts()]);
-          try {
-            stamp = await fetchDashboardStamp();
-          } catch {
-            stamp = "";
-          }
-          return;
-        }
         const next = await fetchDashboardStamp();
         if (cancelled || next === stamp) return;
         stamp = next;
-        await Promise.all([loadTransactions(), loadAccounts()]);
-      } catch {
-        if (initial && !cancelled) toast.error("Could not load dashboard data");
+        await Promise.all([loadLedgerRef.current(), loadStatsRef.current()]);
       } finally {
         inFlight = false;
-        if (initial && !cancelled) setLoading(false);
       }
     };
 
-    refresh({ initial: true });
-    const id = setInterval(() => {
-      refresh();
-    }, 2000);
-    const onVisible = () => refresh();
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", onVisible);
+    fetchDashboardStamp()
+      .then((value) => {
+        if (!cancelled) stamp = value;
+      })
+      .catch(() => {});
+
+    const id = setInterval(refresh, 2000);
+    document.addEventListener("visibilitychange", refresh);
+    window.addEventListener("focus", refresh);
     return () => {
       cancelled = true;
       clearInterval(id);
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", onVisible);
+      document.removeEventListener("visibilitychange", refresh);
+      window.removeEventListener("focus", refresh);
     };
-  }, [loadTransactions, loadAccounts]);
+  }, []);
 
   useEffect(() => {
     if (user && user.openingBalanceSet === false) {
@@ -324,14 +331,14 @@ function Dashboard() {
         setUser((prev) => ({ ...prev, ...updated }));
         setOpeningModalOpen(false);
         setOpeningModalRequired(false);
-        await loadAccounts();
+        await loadLedger();
         toast.success("Opening balance saved", { position: "top-center" });
       } catch (error) {
         toast.error(error?.response?.data?.message || "Could not save opening balance");
         throw error;
       }
     },
-    [setUser, loadAccounts]
+    [setUser, loadLedger]
   );
 
   const openAddModal = useCallback(() => {
@@ -374,7 +381,7 @@ function Dashboard() {
           setTransfers((prev) => [data, ...prev]);
           setHasTransactions(true);
           toast.success("Transfer recorded", { position: "top-center" });
-          await loadAccounts();
+          await loadLedger();
           return;
         } catch (error) {
           toast.error(error?.response?.data?.message || "Could not save transfer");
@@ -395,7 +402,7 @@ function Dashboard() {
           else setExpenses(updater);
 
           toast.success("Updated", { position: "top-center" });
-          await loadAccounts();
+          await loadLedger();
           return;
         }
 
@@ -405,7 +412,7 @@ function Dashboard() {
         setHasTransactions(true);
 
         toast.success(isIncome ? "Income added" : "Expense added", { position: "top-center" });
-        await loadAccounts();
+        await loadLedger();
       } catch (error) {
         toast.error(
           error?.response?.data?.message ||
@@ -414,7 +421,7 @@ function Dashboard() {
         throw error;
       }
     },
-    [loadAccounts]
+    [loadLedger]
   );
 
   const removeTransaction = useCallback(
@@ -427,13 +434,13 @@ function Dashboard() {
           setExpenses((prev) => prev.filter((expense) => expense._id !== id));
         }
         toast.success("Deleted", { position: "top-center" });
-        await loadAccounts();
+        await loadLedger();
       } catch (error) {
         toast.error(error?.response?.data?.message || "Could not delete");
         throw error;
       }
     },
-    [loadAccounts]
+    [loadLedger]
   );
 
   const removeTransfer = useCallback(
@@ -442,13 +449,13 @@ function Dashboard() {
         await deleteTransferRequest(id);
         setTransfers((prev) => prev.filter((row) => row._id !== id));
         toast.success("Transfer deleted", { position: "top-center" });
-        await loadAccounts();
+        await loadLedger();
       } catch (error) {
         toast.error(error?.response?.data?.message || "Could not delete transfer");
         throw error;
       }
     },
-    [loadAccounts]
+    [loadLedger]
   );
 
   const deleteExpense = useCallback((id) => removeTransaction("expense", id), [removeTransaction]);
@@ -465,15 +472,15 @@ function Dashboard() {
 
   const exportMonth = useCallback(() => {
     buildTransactionsCsv({
-      expenses: monthExpenses,
-      incomes: monthIncomes,
-      transfers: monthTransfers,
+      expenses: consumptionExpenses,
+      incomes,
+      transfers,
       cardPayments: monthCardPayments,
       accounts,
       monthLabel: formatMonthLabel(monthKey),
     });
     toast.success("CSV downloaded", { position: "top-center" });
-  }, [accounts, monthCardPayments, monthExpenses, monthIncomes, monthKey, monthTransfers]);
+  }, [accounts, consumptionExpenses, incomes, monthCardPayments, monthKey, transfers]);
 
   const displayName =
     ((user.firstName || "") + " " + (user.lastName || "")).trim() || user.email;
@@ -737,7 +744,7 @@ function Dashboard() {
                   accountFilter={accountFilter}
                 />
                 <WeeklyBarChart
-                  expenses={overviewExpenses}
+                  expenses={weekOverviewExpenses}
                   accounts={accounts}
                   accountFilter={accountFilter}
                 />
@@ -749,8 +756,9 @@ function Dashboard() {
                   cycle={periodCycle}
                 />
                 <CategoryBreakdown
-                  expenses={overviewExpenses}
+                  expenses={[]}
                   categorySums={lifetimeCategorySums}
+                  subcategorySums={lifetimeStats.subcategorySums}
                   monthTotal={lifetimeExpenseTotal}
                   accounts={accounts}
                   accountFilter={accountFilter}
@@ -759,21 +767,17 @@ function Dashboard() {
                   emptyDescription="Your expenses from every month will appear here"
                   scopeLabel="all time"
                 >
-                  <MonthlySpendList expenses={overviewExpenses} />
+                  <MonthlySpendList monthlyTotals={lifetimeStats.monthlyTotals} />
                 </CategoryBreakdown>
               </div>
 
               <div className="xl:col-span-2 min-h-[28rem] xl:min-h-0 xl:relative">
                 <div className="xl:absolute xl:inset-0 flex">
                   <Transactions
-                    expenses={monthExpenses}
-                    incomes={monthIncomes}
-                    transfers={monthTransfers}
+                    expenses={consumptionExpenses}
+                    incomes={incomes}
+                    transfers={transfers}
                     cardPayments={monthCardPayments}
-                    allExpenses={consumptionExpenses}
-                    allIncomes={incomes}
-                    allTransfers={transfers}
-                    allCardPayments={cardPaymentExpenses}
                     accounts={accounts}
                     accountFilter={accountFilter}
                     expenseCategory={expenseCategory}
@@ -820,7 +824,7 @@ function Dashboard() {
         open={accountsOpen}
         onClose={() => setAccountsOpen(false)}
         accounts={accounts}
-        onChanged={loadAccounts}
+        onChanged={loadLedger}
       />
 
       <BudgetModal

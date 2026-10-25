@@ -77,7 +77,7 @@ In Vite **development**, PIN / Face ID / fingerprint unlock is skipped (includin
 - **Spent:** consumption only. Credit-card bill payments are not spent; they settle the card and show on Transfers.
 - **Income:** salary, family transfers (e.g. Mummy), refunds. Account-to-account transfers are not income.
 - **Month vs credit cycle:** a credit account’s dashboard month follows that card’s statement/due days.
-- **Activity:** Statement (oldest first, running balance), Expenses, Income, Transfers. Search mixes all types and groups by **calendar date**, newest first.
+- **Activity:** Statement (oldest first, running balance), Expenses, Income, Transfers. The dashboard loads the selected month; search queries the API and groups by **calendar date**, newest first.
 - **Edits:** add/edit/delete only within 24 hours of `createdAt` (window comes from `/config`).
 - **Unlock:** PIN or platform authenticator. WebAuthn does not replace email/password login.
 

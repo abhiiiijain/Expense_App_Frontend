@@ -1,5 +1,5 @@
 import { apiClient } from "./client";
-import fallbackTaxonomy from "../data/taxonomy.fallback.json";
+import fallbackTaxonomy from "@shared/taxonomy.json";
 import { buildCategoriesFromTaxonomy } from "../utils/buildCategories";
 import { DEFAULT_EDIT_WINDOW_MS } from "../utils/formatEditWindow";
 

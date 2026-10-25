@@ -75,10 +75,6 @@ export function getPeriodMonthKey(dateInput = new Date(), cycle = "calendar") {
   return spec ? getCreditCycleMonthKey(dateInput, spec) : getMonthKey(dateInput);
 }
 
-export function isInPeriod(dateInput, monthKey, cycle = "calendar") {
-  return getPeriodMonthKey(dateInput, cycle) === monthKey;
-}
-
 /** Inclusive cycle for the statement generated on statement day of `monthKey`. */
 export function getCreditCycleBounds(monthKey, cycle) {
   const spec = resolveCreditCycle(cycle);

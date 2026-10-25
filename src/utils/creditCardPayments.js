@@ -1,13 +1,18 @@
-export const CARD_PAYMENT_SUBCATEGORY = "Credit Card Payment";
+import {
+  CARD_PAYMENT_SUBCATEGORY,
+  accountIdOf,
+  isCardPaymentExpense,
+  paymentSettlesCreditAccount,
+} from "@shared/creditCardPayments.js";
+
+export {
+  CARD_PAYMENT_SUBCATEGORY,
+  accountIdOf,
+  isCardPaymentExpense,
+  paymentSettlesCreditAccount,
+};
+
 export const EXTERNAL_PAY_FROM = "__external__";
-
-export function accountIdOf(account) {
-  return String(account?.id || account?._id || "");
-}
-
-export function isCardPaymentExpense(expense) {
-  return expense?.subcategory === CARD_PAYMENT_SUBCATEGORY;
-}
 
 export function suggestedCardPaymentTitle(creditAccount) {
   const name = String(creditAccount?.name || "").trim();
@@ -68,37 +73,4 @@ export function cardPaymentSpendAdjustments(payments, accounts = []) {
     if (!settlesTracked) unmatched += amount;
   }
   return { outside, unmatched };
-}
-
-function creditAccountMatchingTitle(expense, creditAccounts) {
-  const title = String(expense?.title || "");
-  if (/flipkart/i.test(title)) {
-    return creditAccounts.find((account) => /flipkart/i.test(account?.name || ""));
-  }
-  if (/sbi\s*cc/i.test(title)) {
-    return creditAccounts.find(
-      (account) => account?.type === "credit" && /sbi/i.test(account?.name || "")
-    );
-  }
-  return null;
-}
-
-export function paymentSettlesCreditAccount(expense, creditAccount, creditAccounts) {
-  if (!isCardPaymentExpense(expense)) return false;
-  const creditAccountId = accountIdOf(creditAccount);
-
-  if (expense.settlesAccountId) {
-    return String(expense.settlesAccountId) === creditAccountId;
-  }
-
-  if (String(expense.accountId) === creditAccountId) return true;
-
-  const fromTitle = creditAccountMatchingTitle(expense, creditAccounts);
-  if (fromTitle) return accountIdOf(fromTitle) === creditAccountId;
-
-  return (
-    creditAccounts.length === 1 &&
-    accountIdOf(creditAccounts[0]) === creditAccountId &&
-    String(expense.accountId) !== creditAccountId
-  );
 }

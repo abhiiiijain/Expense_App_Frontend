@@ -1,4 +1,5 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
+import { searchTransactions } from "../api/transactions";
 import { useAppConfig } from "../config/AppConfigContext";
 import {
   formatRelativeDateLabel,
@@ -14,8 +15,8 @@ import {
   AccountTotalsBar,
 } from "./AccountBreakdown";
 import { useAccountExpenseTotals } from "../hooks/useAccountExpenseTotals";
-import { filterByCategory, filterBySearch } from "../utils/filterTransactions";
-import { cardPaymentRoute } from "../utils/creditCardPayments";
+import { filterByCategory } from "../utils/filterTransactions";
+import { cardPaymentRoute, isCardPaymentExpense } from "../utils/creditCardPayments";
 import { withStatementBalances } from "../utils/statementActivity";
 
 function FilterChips({ options, selected, onSelect, onClear, activeClass, inactiveClass }) {
@@ -357,10 +358,6 @@ const Transactions = ({
   incomes = [],
   transfers = [],
   cardPayments = [],
-  allExpenses,
-  allIncomes,
-  allTransfers,
-  allCardPayments,
   accounts = [],
   accountFilter = "all",
   expenseCategory = "All",
@@ -378,6 +375,7 @@ const Transactions = ({
 }) => {
   const [tab, setTab] = useState("statement");
   const [search, setSearch] = useState("");
+  const [searchHits, setSearchHits] = useState(null);
   const [selectedIncomeMainCategory, setSelectedIncomeMainCategory] = useState("All");
   const [selectedIncomeSubcategory, setSelectedIncomeSubcategory] = useState("All");
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -397,41 +395,42 @@ const Transactions = ({
   const showAccountBreakdown = accountFilter === "all" && accounts.length > 1;
   const searching = Boolean(search.trim());
 
+  useEffect(() => {
+    const query = search.trim();
+    if (!query) {
+      setSearchHits(null);
+      return undefined;
+    }
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const data = await searchTransactions(query);
+        if (!cancelled) setSearchHits(data);
+      } catch (_error) {
+        if (!cancelled) setSearchHits({ expenses: [], incomes: [], transfers: [] });
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [search]);
+
   const filteredExpenses = useMemo(() => {
     if (searching) {
       return withKind(
-        filterBySearch(
-          allExpenses ?? expenses,
-          search,
-          (tx) => accountNameById[String(tx.accountId)] || ""
-        ),
+        (searchHits?.expenses || []).filter((tx) => !isCardPaymentExpense(tx)),
         "expense"
       );
     }
     if (tab === "statement") return withKind(expenses, "expense");
     if (tab !== "expense") return [];
     return withKind(filterByCategory(expenses, expenseCategory, expenseSubcategory), "expense");
-  }, [
-    searching,
-    tab,
-    expenses,
-    allExpenses,
-    expenseCategory,
-    expenseSubcategory,
-    search,
-    accountNameById,
-  ]);
+  }, [searching, tab, expenses, searchHits, expenseCategory, expenseSubcategory]);
 
   const filteredIncomes = useMemo(() => {
     if (searching) {
-      return withKind(
-        filterBySearch(
-          allIncomes ?? incomes,
-          search,
-          (tx) => accountNameById[String(tx.accountId)] || ""
-        ),
-        "income"
-      );
+      return withKind(searchHits?.incomes || [], "income");
     }
     if (tab === "statement") return withKind(incomes, "income");
     if (tab !== "income") return [];
@@ -439,52 +438,21 @@ const Transactions = ({
       filterByCategory(incomes, selectedIncomeMainCategory, selectedIncomeSubcategory),
       "income"
     );
-  }, [
-    searching,
-    tab,
-    incomes,
-    allIncomes,
-    selectedIncomeMainCategory,
-    selectedIncomeSubcategory,
-    search,
-    accountNameById,
-  ]);
+  }, [searching, tab, incomes, searchHits, selectedIncomeMainCategory, selectedIncomeSubcategory]);
 
   const filteredTransfers = useMemo(() => {
-    const source = searching ? allTransfers ?? transfers : transfers;
-    if (!searching) {
-      if (tab !== "transfer" && tab !== "statement") return [];
-      return withKind(source, "transfer");
-    }
-    return withKind(
-      filterBySearch(
-        source,
-        search,
-        (tx) =>
-          `${accountNameById[String(tx.fromAccountId)] || ""} ${accountNameById[String(tx.toAccountId)] || ""}`
-      ),
-      "transfer"
-    );
-  }, [searching, tab, transfers, allTransfers, search, accountNameById]);
+    if (searching) return withKind(searchHits?.transfers || [], "transfer");
+    if (tab !== "transfer" && tab !== "statement") return [];
+    return withKind(transfers, "transfer");
+  }, [searching, tab, transfers, searchHits]);
 
   const filteredCardPayments = useMemo(() => {
-    const source = searching ? allCardPayments ?? cardPayments : cardPayments;
-    if (!searching) {
-      if (tab !== "transfer" && tab !== "statement") return [];
-      return withKind(source, "cardPayment");
+    if (searching) {
+      return withKind((searchHits?.expenses || []).filter(isCardPaymentExpense), "cardPayment");
     }
-    return withKind(
-      filterBySearch(
-        source,
-        search,
-        (tx) => {
-          const route = cardPaymentRoute(tx, accounts);
-          return `${tx.title || ""} ${route.fromName} ${route.toName}`;
-        }
-      ),
-      "cardPayment"
-    );
-  }, [searching, tab, cardPayments, allCardPayments, search, accounts]);
+    if (tab !== "transfer" && tab !== "statement") return [];
+    return withKind(cardPayments, "cardPayment");
+  }, [searching, tab, cardPayments, searchHits]);
 
   const searchResults = useMemo(() => {
     if (!searching) return [];
