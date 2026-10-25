@@ -67,15 +67,18 @@ function SummaryCards({
     billPaid
       ? {
           label: "Amount due",
+          shortLabel: "Due",
           display: formatCurrency(creditBill.due),
           badge: "✓ Paid",
           tone: "text-emerald-700 dark:text-emerald-400",
           accent: "bg-emerald-600",
           wash: "bg-emerald-50 dark:bg-emerald-500/10",
           hint: paidHint,
+          wideOnMobile: true,
         }
       : {
           label: showDue ? "Amount due" : "Account balance",
+          shortLabel: showDue ? "Due" : "Balance",
           display: formatCurrency(showDue ? Math.abs(resolvedBalance) : resolvedBalance),
           tone:
             resolvedBalance >= 0
@@ -87,24 +90,25 @@ function SummaryCards({
               ? "bg-sage-50 dark:bg-sage-600/10"
               : "bg-amber-50 dark:bg-amber-500/10",
           hint: paidHint || balanceHint,
+          wideOnMobile: true,
         },
   ];
 
   return (
     <section>
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-xs text-ink-muted">
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 min-w-0">
+      <div className="mb-1.5 sm:mb-2 flex flex-col gap-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between sm:gap-x-4 text-xs text-ink-muted">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
           {!hideOpening && (
-            <span>
+            <span className="inline-flex items-baseline flex-wrap gap-x-1.5">
               Opening
-              <span className="font-semibold text-ink tabular-nums ml-1">
+              <span className="font-semibold text-ink tabular-nums">
                 {formatLedgerAmount(openingBalance)}
               </span>
               {onEditOpeningBalance && (
                 <button
                   type="button"
                   onClick={onEditOpeningBalance}
-                  className="ml-1.5 font-semibold text-sage-700 hover:text-sage-600 dark:text-blue-300 dark:hover:text-blue-200"
+                  className="font-semibold text-sage-700 hover:text-sage-600 dark:text-blue-300 dark:hover:text-blue-200"
                 >
                   Edit
                 </button>
@@ -114,24 +118,37 @@ function SummaryCards({
           {periodNote && <span className="truncate">{periodNote}</span>}
         </div>
         {spentPctLabel && (
-          <p className="truncate">
+          <p>
             Spent <span className="font-semibold text-ink">{spentPctLabel}</span> of income
           </p>
         )}
       </div>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
         {cards.map((card) => (
           <div
             key={card.label}
-            className={`relative overflow-hidden rounded-xl px-3 py-2 ${card.wash}`}
+            className={`relative overflow-hidden rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 ${card.wash} ${
+              card.wideOnMobile
+                ? "col-span-2 sm:col-span-1 max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-2"
+                : ""
+            }`}
             style={{ border: "1px solid var(--sw-border)" }}
             title={card.hint || undefined}
           >
             <div className={`absolute left-0 top-0 h-full w-1 ${card.accent}`} />
-            <p className="text-[11px] font-medium text-ink-muted pl-2 leading-none">{card.label}</p>
-            <div className="mt-1 pl-2 flex items-baseline justify-between gap-1.5 min-w-0">
-              <p className={`text-lg sm:text-xl font-bold tabular-nums tracking-tight truncate ${card.tone}`}>
+            <p className="text-[11px] font-medium text-ink-muted pl-2 leading-none shrink-0">
+              <span className="sm:hidden">{card.shortLabel || card.label}</span>
+              <span className="hidden sm:inline">{card.label}</span>
+            </p>
+            <div
+              className={`pl-2 flex items-baseline justify-between gap-1.5 min-w-0 ${
+                card.wideOnMobile ? "mt-0 sm:mt-1" : "mt-1"
+              }`}
+            >
+              <p
+                className={`text-base sm:text-xl font-bold tabular-nums tracking-tight leading-tight ${card.tone}`}
+              >
                 {card.display}
               </p>
               {card.badge && (
@@ -139,7 +156,7 @@ function SummaryCards({
               )}
             </div>
             {card.hint && (billPaid || (creditBill?.instalments?.length || 0) > 0) && (
-              <p className="pl-2 mt-0.5 text-[10px] text-ink-muted truncate">{card.hint}</p>
+              <p className="pl-2 mt-0.5 text-[10px] text-ink-muted truncate max-sm:hidden">{card.hint}</p>
             )}
           </div>
         ))}

@@ -18,10 +18,10 @@ export function shiftMonthKey(monthKey, delta) {
   return getMonthKey(date);
 }
 
-export function formatMonthLabel(monthKey) {
+export function formatMonthLabel(monthKey, { short = false } = {}) {
   const [year, month] = monthKey.split("-").map(Number);
   return new Date(year, month - 1, 1).toLocaleString("en-IN", {
-    month: "long",
+    month: short ? "short" : "long",
     year: "numeric",
   });
 }

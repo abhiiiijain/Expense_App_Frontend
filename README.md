@@ -69,7 +69,7 @@ VITE_API_BASE_URL=https://expense-app-backend-srz0.onrender.com
 2. Start the frontend: `npm run dev` (port from `VITE_PORT`, default `4043`).
 3. Open `http://localhost:4043`.
 
-In Vite **development**, hiding the tab does not lock the PIN. Production always locks on hide. Production also requires a PIN after login.
+In Vite **development**, PIN / Face ID / fingerprint unlock is skipped (including hide and refresh). Production always locks and requires PIN after login. WebAuthn is device unlock, not login.
 
 ## App behavior
 

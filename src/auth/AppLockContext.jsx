@@ -6,13 +6,14 @@ import { useAuth } from "./AuthContext";
 
 const AppLockContext = createContext(null);
 const REFRESH_MS = 30_000;
-const LOCK_ON_HIDE = !import.meta.env.DEV;
+const SKIP_APP_LOCK = import.meta.env.DEV;
 
 export function AppLockProvider({ children }) {
   const { user } = useAuth();
   const [session, setSession] = useState(getAppSession);
 
   const lock = useCallback(() => {
+    if (SKIP_APP_LOCK) return;
     setAppSession(null);
   }, []);
 
@@ -29,7 +30,7 @@ export function AppLockProvider({ children }) {
   }, [user, lock]);
 
   useEffect(() => {
-    if (!LOCK_ON_HIDE) return undefined;
+    if (SKIP_APP_LOCK) return undefined;
 
     const hide = () => {
       if (document.visibilityState === "hidden") {
@@ -46,14 +47,14 @@ export function AppLockProvider({ children }) {
     };
   }, [lock]);
 
-  const unlocked = Boolean(user && session);
+  const unlocked = Boolean(user && (session || SKIP_APP_LOCK));
 
   useEffect(() => {
-    if (!unlocked) return undefined;
+    if (!unlocked || SKIP_APP_LOCK) return undefined;
 
     const generation = getAppSessionGeneration();
     const timer = window.setInterval(async () => {
-      if (LOCK_ON_HIDE && document.visibilityState !== "visible") return;
+      if (document.visibilityState !== "visible") return;
       try {
         const next = await refreshAppSession();
         if (getAppSessionGeneration() !== generation) return;

@@ -58,6 +58,10 @@ function AuthRoutes() {
         element={
           !user ? (
             <Navigate to="/login" replace />
+          ) : import.meta.env.DEV ? (
+            <Suspense fallback={<LoadingScreen />}>
+              <Dashboard />
+            </Suspense>
           ) : !user.pinSet ? (
             <PinLock mode="setup" />
           ) : !unlocked ? (

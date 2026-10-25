@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { useAuth } from "./AuthContext";
 import { beginPinSubmit, endPinSubmit, setAppSession } from "./appSession";
@@ -46,6 +46,8 @@ function PinLock({ mode }) {
   const [busy, setBusy] = useState(false);
   const [padKey, setPadKey] = useState(0);
   const [deviceReady, setDeviceReady] = useState(false);
+  const [deviceChecked, setDeviceChecked] = useState(false);
+  const [usePinFallback, setUsePinFallback] = useState(false);
 
   const resetPad = useCallback(() => setPadKey((value) => value + 1), []);
 
@@ -170,11 +172,16 @@ function PinLock({ mode }) {
   useEffect(() => {
     if (mode !== "unlock" || !user?.biometricEnabled) {
       setDeviceReady(false);
+      setDeviceChecked(true);
       return undefined;
     }
     let cancelled = false;
+    setDeviceChecked(false);
     deviceUnlockAvailable().then((available) => {
-      if (!cancelled) setDeviceReady(available);
+      if (!cancelled) {
+        setDeviceReady(available);
+        setDeviceChecked(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -182,6 +189,24 @@ function PinLock({ mode }) {
   }, [mode, user?.biometricEnabled]);
 
   const showBiometric = mode === "unlock" && phase === "enter" && deviceReady && user?.biometricEnabled;
+  const preferBiometric = showBiometric && !usePinFallback;
+  const waitingOnDevice =
+    mode === "unlock" &&
+    phase === "enter" &&
+    Boolean(user?.biometricEnabled) &&
+    !deviceChecked &&
+    !usePinFallback;
+
+  const biometricUnlockRef = useRef(handleBiometricUnlock);
+  biometricUnlockRef.current = handleBiometricUnlock;
+
+  useEffect(() => {
+    if (!preferBiometric) return undefined;
+    const timer = window.setTimeout(() => {
+      biometricUnlockRef.current();
+    }, 200);
+    return () => window.clearTimeout(timer);
+  }, [preferBiometric]);
 
   const handleResetPin = useCallback(
     (pin) =>
@@ -194,17 +219,19 @@ function PinLock({ mode }) {
     [finishPinEntry, password, unlockWith]
   );
 
-  const title = TITLES[phase] || TITLES.enter;
+  const title = preferBiometric || waitingOnDevice ? "Unlock SpendWise" : TITLES[phase] || TITLES.enter;
 
   const subtitle =
     mode === "setup"
       ? "SpendWise asks for this PIN whenever you switch away or close the app."
       : phase.startsWith("reset")
         ? "Confirm with your account password, then choose a new 4-digit PIN."
-        : `Welcome back${user?.firstName ? `, ${user.firstName}` : ""}`;
+        : preferBiometric || waitingOnDevice
+          ? `Welcome back${user?.firstName ? `, ${user.firstName}` : ""}. Use Face ID or fingerprint.`
+          : `Welcome back${user?.firstName ? `, ${user.firstName}` : ""}`;
 
   const onComplete = mode === "setup" ? handleSetup : phase.startsWith("reset") ? handleResetPin : handleUnlock;
-  const showPad = phase !== "reset-password";
+  const showPad = phase !== "reset-password" && !preferBiometric && !waitingOnDevice;
 
   return (
     <AuthLayout compact title={title} subtitle={subtitle}>
@@ -246,6 +273,33 @@ function PinLock({ mode }) {
         </form>
       ) : null}
 
+      {preferBiometric || waitingOnDevice ? (
+        <div className="space-y-3">
+          <button
+            type="button"
+            className="sw-btn-primary"
+            onClick={handleBiometricUnlock}
+            disabled={busy || waitingOnDevice}
+          >
+            {busy || waitingOnDevice ? (
+              <LoadingSpinner className="h-4 w-4" />
+            ) : (
+              <FingerprintIcon className="h-5 w-5" />
+            )}
+            {busy
+              ? "Waiting for Face ID or fingerprint…"
+              : waitingOnDevice
+                ? "Checking this device…"
+                : "Unlock with Face ID or fingerprint"}
+          </button>
+          {error ? (
+            <p className="text-sm text-red-600 text-center" role="alert">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
       {showPad ? (
         <PinPad
           key={padKey}
@@ -256,21 +310,35 @@ function PinLock({ mode }) {
         />
       ) : null}
 
-      {showBiometric ? (
+      {showBiometric && usePinFallback ? (
         <button
           type="button"
           className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl py-2 text-sm font-semibold text-sage-700 transition disabled:opacity-50"
           style={{ background: "var(--sw-muted-bg)" }}
-          onClick={handleBiometricUnlock}
+          onClick={() => {
+            setUsePinFallback(false);
+            setError("");
+          }}
           disabled={busy}
         >
-          {busy ? <LoadingSpinner className="h-4 w-4" /> : <FingerprintIcon className="h-4 w-4" />}
+          <FingerprintIcon className="h-4 w-4" />
           Use fingerprint or Face ID
         </button>
       ) : null}
 
       <div className="mt-4 flex items-center justify-between text-sm">
-        {mode === "unlock" && phase === "enter" ? (
+        {mode === "unlock" && phase === "enter" && (preferBiometric || waitingOnDevice) ? (
+          <button
+            type="button"
+            className="font-semibold text-sage-700 hover:underline"
+            onClick={() => {
+              setUsePinFallback(true);
+              setError("");
+            }}
+          >
+            Use PIN instead
+          </button>
+        ) : mode === "unlock" && phase === "enter" ? (
           <button
             type="button"
             className="font-semibold text-sage-700 hover:underline"

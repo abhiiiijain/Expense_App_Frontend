@@ -645,26 +645,23 @@ function Dashboard() {
             </div>
           </div>
 
-          <p className="sm:hidden mt-2 text-center text-xs text-ink-muted truncate">
-            {getGreeting()}, {firstName}
-          </p>
         </div>
       </header>
         {!loading && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 pb-2.5 space-y-2">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <MonthSwitcher monthKey={monthKey} onChange={setMonthKey} cycle={periodCycle} />
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-2 w-full min-w-0 sm:w-auto sm:ml-auto">
                 <button
                   type="button"
                   onClick={() => setBudgetsOpen(true)}
-                  className="sw-input !w-auto py-2 text-sm font-medium text-sage-700 dark:text-sage-200 hover:bg-[var(--sw-muted-bg)]"
+                  className="sw-input !w-auto shrink-0 !px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2 text-xs sm:text-sm font-medium text-sage-700 dark:text-sage-200 hover:bg-[var(--sw-muted-bg)]"
                 >
                   Budgets
                 </button>
                 {accounts.length > 0 && (
                   <select
-                    className="sw-input !w-auto py-2 text-sm"
+                    className="sw-input min-w-0 flex-1 sm:flex-none sm:!w-auto sm:min-w-[11rem] !px-2.5 !py-1.5 sm:!px-3.5 sm:!py-2 text-xs sm:text-sm"
                     value={accountFilter}
                     onChange={(e) => setAccountFilter(e.target.value)}
                     aria-label="Filter by account"

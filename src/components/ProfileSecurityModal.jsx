@@ -57,7 +57,8 @@ function ProfileSecurityModal({ open, onClose }) {
   const [newPassword, setNewPassword] = useState("");
   const [currentPin, setCurrentPin] = useState("");
   const [nextPin, setNextPin] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deviceBusy, setDeviceBusy] = useState(false);
   const [deviceReady, setDeviceReady] = useState(false);
 
   useEffect(() => {
@@ -86,7 +87,7 @@ function ProfileSecurityModal({ open, onClose }) {
   const saveEmail = async (e) => {
     e.preventDefault();
     try {
-      setBusy(true);
+      setSaving(true);
       const updated = await changeEmail(email, password);
       setUser(updated);
       toast.success("Email updated", { position: "top-center" });
@@ -94,21 +95,21 @@ function ProfileSecurityModal({ open, onClose }) {
     } catch (error) {
       toast.error(error?.response?.data?.message || "Could not update email");
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
   const savePassword = async (e) => {
     e.preventDefault();
     try {
-      setBusy(true);
+      setSaving(true);
       await changePassword(currentPassword, newPassword);
       toast.success("Password updated", { position: "top-center" });
       onClose?.();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Could not update password");
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
@@ -122,7 +123,7 @@ function ProfileSecurityModal({ open, onClose }) {
 
   const enableBiometric = async () => {
     try {
-      setBusy(true);
+      setDeviceBusy(true);
       const options = await beginWebAuthnRegistration();
       const credential = await createDeviceCredential(options);
       await finishWebAuthnRegistration(credential);
@@ -132,20 +133,20 @@ function ProfileSecurityModal({ open, onClose }) {
       const message = biometricErrorMessage(error, "Could not enable fingerprint or Face ID");
       if (message) toast.error(message);
     } finally {
-      setBusy(false);
+      setDeviceBusy(false);
     }
   };
 
   const disableBiometric = async () => {
     try {
-      setBusy(true);
+      setDeviceBusy(true);
       await removeWebAuthnCredentials();
       rememberBiometric(false);
       toast.success("Device unlock removed", { position: "top-center" });
     } catch (error) {
       toast.error(error?.response?.data?.message || "Could not remove device unlock");
     } finally {
-      setBusy(false);
+      setDeviceBusy(false);
     }
   };
 
@@ -156,14 +157,14 @@ function ProfileSecurityModal({ open, onClose }) {
       return;
     }
     try {
-      setBusy(true);
+      setSaving(true);
       await changePin(currentPin, nextPin);
       toast.success("PIN updated", { position: "top-center" });
       onClose?.();
     } catch (error) {
       toast.error(error?.response?.data?.message || "Could not update PIN");
     } finally {
-      setBusy(false);
+      setSaving(false);
     }
   };
 
@@ -212,12 +213,14 @@ function ProfileSecurityModal({ open, onClose }) {
         </div>
 
         {tab === "pin" ? (
-          <form onSubmit={savePin} className="space-y-3">
-            <PinField id="current-pin" label="Current PIN" value={currentPin} onChange={setCurrentPin} />
-            <PinField id="next-pin" label="New PIN" value={nextPin} onChange={setNextPin} />
-            <button type="submit" disabled={busy} className="sw-btn-primary">
-              {busy ? "Saving…" : "Update PIN"}
-            </button>
+          <div className="space-y-3">
+            <form onSubmit={savePin} className="space-y-3">
+              <PinField id="current-pin" label="Current PIN" value={currentPin} onChange={setCurrentPin} />
+              <PinField id="next-pin" label="New PIN" value={nextPin} onChange={setNextPin} />
+              <button type="submit" disabled={saving} className="sw-btn-primary">
+                {saving ? "Saving…" : "Update PIN"}
+              </button>
+            </form>
             {deviceReady ? (
               <div className="pt-3" style={{ borderTop: "1px solid var(--sw-border)" }}>
                 <p className="sw-label">Device unlock</p>
@@ -225,17 +228,17 @@ function ProfileSecurityModal({ open, onClose }) {
                   Use this phone or computer’s fingerprint or Face ID instead of the PIN.
                 </p>
                 {user?.biometricEnabled ? (
-                  <button type="button" disabled={busy} className="sw-btn-primary" onClick={disableBiometric}>
-                    {busy ? "Saving…" : "Turn off fingerprint or Face ID"}
+                  <button type="button" disabled={deviceBusy} className="sw-btn-primary" onClick={disableBiometric}>
+                    {deviceBusy ? "Turning off…" : "Turn off fingerprint or Face ID"}
                   </button>
                 ) : (
-                  <button type="button" disabled={busy} className="sw-btn-primary" onClick={enableBiometric}>
-                    {busy ? "Waiting…" : "Enable fingerprint or Face ID"}
+                  <button type="button" disabled={deviceBusy} className="sw-btn-primary" onClick={enableBiometric}>
+                    {deviceBusy ? "Waiting…" : "Enable fingerprint or Face ID"}
                   </button>
                 )}
               </div>
             ) : null}
-          </form>
+          </div>
         ) : tab === "email" ? (
           <form onSubmit={saveEmail} className="space-y-3">
             <div>
@@ -255,8 +258,8 @@ function ProfileSecurityModal({ open, onClose }) {
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-            <button type="submit" disabled={busy} className="sw-btn-primary">
-              {busy ? "Saving…" : "Update email"}
+            <button type="submit" disabled={saving} className="sw-btn-primary">
+              {saving ? "Saving…" : "Update email"}
             </button>
           </form>
         ) : (
@@ -276,8 +279,8 @@ function ProfileSecurityModal({ open, onClose }) {
               hint="At least 6 characters"
               required
             />
-            <button type="submit" disabled={busy} className="sw-btn-primary">
-              {busy ? "Saving…" : "Update password"}
+            <button type="submit" disabled={saving} className="sw-btn-primary">
+              {saving ? "Saving…" : "Update password"}
             </button>
           </form>
         )}
