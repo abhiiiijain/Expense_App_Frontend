@@ -49,6 +49,7 @@ import {
   filterCardPaymentsForAccount,
   isCardPaymentExpense,
 } from "../utils/creditCardPayments";
+import { expensesNetOfRefunds, isSpendRefund } from "../utils/spendRefunds";
 import { toast } from "react-toastify";
 
 function isCreditAccount(account) {
@@ -117,6 +118,7 @@ function Dashboard() {
   const [monthEndBalance, setMonthEndBalance] = useState(0);
   const [creditBill, setCreditBill] = useState(null);
   const [weekExpenses, setWeekExpenses] = useState([]);
+  const [weekIncomes, setWeekIncomes] = useState([]);
   const [ledgerScope, setLedgerScope] = useState("");
   const [lifetimeStats, setLifetimeStats] = useState({
     categorySums: {},
@@ -167,34 +169,53 @@ function Dashboard() {
     () => filterByAccount(sourceIncomes, accountFilter),
     [accountFilter, sourceIncomes]
   );
+  const { spendRefunds, countedIncomes } = useMemo(() => {
+    const refunds = [];
+    const counted = [];
+    for (const tx of monthIncomes) {
+      if (isSpendRefund(tx)) refunds.push(tx);
+      else counted.push(tx);
+    }
+    return { spendRefunds: refunds, countedIncomes: counted };
+  }, [monthIncomes]);
+  const netConsumptionExpenses = useMemo(
+    () => expensesNetOfRefunds(consumptionExpenses, spendRefunds),
+    [consumptionExpenses, spendRefunds]
+  );
   const monthTransfers = useMemo(
     () => filterByAccount(sourceTransfers, accountFilter),
     [accountFilter, sourceTransfers]
   );
   const overviewMonthExpenses = useMemo(
-    () => filterByCategory(consumptionExpenses, expenseCategory, expenseSubcategory),
-    [consumptionExpenses, expenseCategory, expenseSubcategory]
+    () => filterByCategory(netConsumptionExpenses, expenseCategory, expenseSubcategory),
+    [netConsumptionExpenses, expenseCategory, expenseSubcategory]
   );
-  const weekOverviewExpenses = useMemo(
-    () =>
-      filterByCategory(
-        weekExpenses
-          .filter((expense) => !isCardPaymentExpense(expense))
-          .filter(
-            (expense) =>
-              accountFilter === "all" || String(expense.accountId) === String(accountFilter)
-          ),
-        expenseCategory,
-        expenseSubcategory
-      ),
-    [accountFilter, weekExpenses, expenseCategory, expenseSubcategory]
-  );
+  const weekOverviewExpenses = useMemo(() => {
+    const weekConsumption = filterByAccount(
+      weekExpenses.filter((expense) => !isCardPaymentExpense(expense)),
+      accountFilter
+    );
+    const weekRefunds = filterByAccount(weekIncomes, accountFilter).filter(isSpendRefund);
+    return filterByCategory(
+      expensesNetOfRefunds(weekConsumption, weekRefunds, consumptionExpenses),
+      expenseCategory,
+      expenseSubcategory
+    );
+  }, [
+    accountFilter,
+    consumptionExpenses,
+    weekExpenses,
+    weekIncomes,
+    expenseCategory,
+    expenseSubcategory,
+  ]);
 
   const categorySums = useCategorySums(overviewMonthExpenses, expenseCategoryNames);
-  const monthBudgetSums = useCategorySums(consumptionExpenses, expenseCategoryNames);
-  const monthExpenseTotal = useMonthTotal(consumptionExpenses);
-  const overviewMonthExpenseTotal = useMonthTotal(overviewMonthExpenses);
-  const monthIncomeTotal = useMonthTotal(monthIncomes);
+  const monthBudgetSums = useCategorySums(netConsumptionExpenses, expenseCategoryNames);
+  const rawMonthExpenseTotal = useMonthTotal(netConsumptionExpenses);
+  const monthExpenseTotal = Math.max(0, rawMonthExpenseTotal);
+  const overviewMonthExpenseTotal = Math.max(0, useMonthTotal(overviewMonthExpenses));
+  const monthIncomeTotal = useMonthTotal(countedIncomes);
   const cardSpendAdjustments = useMemo(
     () =>
       accountFilter === "all"
@@ -287,24 +308,31 @@ function Dashboard() {
     const weekCoveredByMonth =
       !usingCredit && monthKey === getMonthKey() && weekFrom.slice(0, 7) === monthKey;
 
+    const inWeek = (tx) => {
+      const key = formatDateKey(new Date(tx.date || tx.createdAt));
+      return key >= weekFrom && key <= today;
+    };
+
     if (weekCoveredByMonth) {
-      const nextWeekExpenses = (monthData.expenses || []).filter((tx) => {
-        const key = formatDateKey(new Date(tx.date || tx.createdAt));
-        return key >= weekFrom && key <= today;
-      });
-      setWeekExpenses(nextWeekExpenses);
-      weekCacheRef.current.set(weekCacheKey, nextWeekExpenses);
+      const nextWeek = {
+        expenses: (monthData.expenses || []).filter(inWeek),
+        incomes: (monthData.incomes || []).filter(inWeek),
+      };
+      setWeekExpenses(nextWeek.expenses);
+      setWeekIncomes(nextWeek.incomes);
+      weekCacheRef.current.set(weekCacheKey, nextWeek);
       return;
     }
 
-    let nextWeekExpenses = !force ? weekCacheRef.current.get(weekCacheKey) : undefined;
-    if (!nextWeekExpenses) {
+    let nextWeek = !force ? weekCacheRef.current.get(weekCacheKey) : undefined;
+    if (!nextWeek) {
       const week = await fetchTransactionsRange({ from: weekFrom, to: today });
       if (gen !== loadGenRef.current) return;
-      nextWeekExpenses = week.expenses || [];
-      weekCacheRef.current.set(weekCacheKey, nextWeekExpenses);
+      nextWeek = { expenses: week.expenses || [], incomes: week.incomes || [] };
+      weekCacheRef.current.set(weekCacheKey, nextWeek);
     }
-    setWeekExpenses(nextWeekExpenses);
+    setWeekExpenses(nextWeek.expenses || []);
+    setWeekIncomes(nextWeek.incomes || []);
   }, [accountFilter, monthKey]);
 
   const loadStats = useCallback(async ({ force = false } = {}) => {

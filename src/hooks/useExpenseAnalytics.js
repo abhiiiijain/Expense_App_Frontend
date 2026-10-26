@@ -55,7 +55,7 @@ export function useWeeklyBarChartData(expenses, expenseCategories, expenseCatego
 
     const datasets = activeCategories.map((category) => ({
       label: category,
-      data: sums[category],
+      data: sums[category].map((value) => Math.max(0, value)),
       backgroundColor: colorByName[category] || "#9CA3AF",
       stack: "week",
       maxBarThickness: 44,
@@ -77,9 +77,12 @@ export function useWeeklyBarChartData(expenses, expenseCategories, expenseCatego
       },
     }));
 
-    const weekTotal = activeCategories.reduce(
-      (sum, name) => sum + sums[name].reduce((daySum, value) => daySum + value, 0),
-      0
+    const weekTotal = Math.max(
+      0,
+      activeCategories.reduce(
+        (sum, name) => sum + sums[name].reduce((daySum, value) => daySum + value, 0),
+        0
+      )
     );
 
     return {

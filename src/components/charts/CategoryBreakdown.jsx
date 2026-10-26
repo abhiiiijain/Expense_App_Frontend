@@ -159,7 +159,7 @@ function MonthCategoryContent({
     const active = expenseCategories
       .filter((c) => categorySums[c.name] > 0)
       .sort((a, b) => categorySums[b.name] - categorySums[a.name]);
-    const empty = expenseCategories.filter((c) => !categorySums[c.name]);
+    const empty = expenseCategories.filter((c) => !(categorySums[c.name] > 0));
 
     const breakdownMap = {};
     if (subcategorySums) {
@@ -179,6 +179,7 @@ function MonthCategoryContent({
         category,
         Object.entries(subs)
           .map(([name, amount]) => ({ name, amount }))
+          .filter((sub) => sub.amount > 0)
           .sort((a, b) => b.amount - a.amount),
       ])
     );

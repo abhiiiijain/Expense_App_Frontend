@@ -1,6 +1,6 @@
 export const CARD_PAYMENT_SUBCATEGORY = "Credit Card Payment";
 
-export function accountIdOf(account) {
+function accountIdOf(account) {
   return String(account?.id || account?._id || "");
 }
 
