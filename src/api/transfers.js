@@ -5,6 +5,11 @@ export async function createTransfer(payload) {
   return data;
 }
 
+export async function updateTransfer(id, payload) {
+  const { data } = await apiClient.put(`transfers/${id}`, payload);
+  return data;
+}
+
 export async function deleteTransfer(id) {
   await apiClient.delete(`transfers/${id}`);
 }

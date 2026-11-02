@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchBudgets, upsertBudget } from "../api/budgets";
 import { useCategories } from "../config/AppConfigContext";
 import { formatCurrency, formatPercent } from "../utils/formatCurrency";
+import { shiftMonthKey } from "../utils/dateHelpers";
 import { toast } from "react-toastify";
 
 function BudgetPanel({ monthKey, categorySums }) {
@@ -10,6 +11,7 @@ function BudgetPanel({ monthKey, categorySums }) {
   const [editing, setEditing] = useState(null);
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
+  const [copying, setCopying] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +48,40 @@ function BudgetPanel({ monthKey, categorySums }) {
   const startEdit = (categoryName, amount) => {
     setEditing(categoryName);
     setDraft(amount ? String(amount) : "");
+  };
+
+  const copyLastMonth = async () => {
+    const previousKey = shiftMonthKey(monthKey, -1);
+    if (!previousKey) return;
+    try {
+      setCopying(true);
+      const previous = await fetchBudgets(previousKey);
+      const toCopy = (previous || []).filter((row) => Number(row.amount) > 0);
+      if (!toCopy.length) {
+        toast.info("No budgets to copy from last month", { position: "top-center" });
+        return;
+      }
+      const next = [];
+      for (const row of toCopy) {
+        const result = await upsertBudget({
+          monthKey,
+          category: row.category,
+          amount: row.amount,
+        });
+        if (!result.removed) next.push(result);
+      }
+      setBudgets((prev) => {
+        const kept = prev.filter(
+          (row) => !next.some((copied) => copied.category === row.category)
+        );
+        return [...kept, ...next];
+      });
+      toast.success("Copied last month’s budgets", { position: "top-center" });
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Could not copy last month");
+    } finally {
+      setCopying(false);
+    }
   };
 
   const save = async (categoryName) => {
@@ -148,15 +184,25 @@ function BudgetPanel({ monthKey, categorySums }) {
         )}
       </ul>
 
-      {withBudget.length > 0 && withBudget.length < rows.length && (
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        {withBudget.length > 0 && withBudget.length < rows.length && (
+          <button
+            type="button"
+            className="text-xs font-medium text-sage-700 dark:text-sage-200"
+            onClick={() => startEdit(rows.find((r) => !r.budget)?.category.name, 0)}
+          >
+            + Add another category budget
+          </button>
+        )}
         <button
           type="button"
-          className="mt-3 text-xs font-medium text-sage-700 dark:text-sage-200"
-          onClick={() => startEdit(rows.find((r) => !r.budget)?.category.name, 0)}
+          className="text-xs font-medium text-sage-700 dark:text-sage-200"
+          disabled={copying}
+          onClick={copyLastMonth}
         >
-          + Add another category budget
+          {copying ? "Copying…" : "Copy last month"}
         </button>
-      )}
+      </div>
     </>
   );
 }

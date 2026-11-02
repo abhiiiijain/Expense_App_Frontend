@@ -1,3 +1,7 @@
+import { cardPaymentRoute, isCardPaymentExpense } from "./creditCardPayments";
+import { isResaleIncome } from "./resaleSales";
+import { isSpendRefund } from "./spendRefunds";
+
 function downloadCsv(filename, rows) {
   const escape = (value) => {
     const str = value == null ? "" : String(value);
@@ -8,7 +12,7 @@ function downloadCsv(filename, rows) {
   };
 
   const csv = rows.map((row) => row.map(escape).join(",")).join("\n");
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
@@ -31,7 +35,7 @@ export function buildTransactionsCsv({
 
   const header = ["Type", "Date", "Title", "Category", "Subcategory", "Amount", "Account"];
   const mapRow = (type, tx) => [
-    type,
+    isSpendRefund(tx) ? "Refund" : isResaleIncome(tx) ? "Resale" : type,
     tx.date || tx.createdAt,
     tx.title,
     tx.category,
@@ -52,12 +56,27 @@ export function buildTransactionsCsv({
     }`,
   ];
 
+  const mapCardPayment = (tx) => {
+    const route = cardPaymentRoute(tx, accounts);
+    return [
+      "card payment",
+      tx.date || tx.createdAt,
+      tx.title,
+      tx.category,
+      tx.subcategory,
+      tx.amount,
+      `${route.fromName} → ${route.toName}`,
+    ];
+  };
+
+  const consumption = expenses.filter((tx) => !isCardPaymentExpense(tx));
+
   const rows = [
     header,
-    ...expenses.map((tx) => mapRow("expense", tx)),
+    ...consumption.map((tx) => mapRow("expense", tx)),
     ...incomes.map((tx) => mapRow("income", tx)),
     ...transfers.map(mapTransfer),
-    ...cardPayments.map((tx) => mapRow("card payment", tx)),
+    ...cardPayments.map(mapCardPayment),
   ];
 
   const stamp = (monthLabel || "export").replace(/\s+/g, "-").toLowerCase();

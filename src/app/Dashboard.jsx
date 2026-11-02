@@ -13,6 +13,7 @@ import AccountsModal from "../components/AccountsModal";
 import ProfileSecurityModal from "../components/ProfileSecurityModal";
 import OnboardingChecklist from "../components/OnboardingChecklist";
 import { updateOpeningBalance } from "../auth/authService";
+import { updateAccount } from "../api/accounts";
 import {
   fetchMonthTransactions,
   fetchTransactionsRange,
@@ -22,9 +23,18 @@ import {
   updateTransaction as updateTransactionRequest,
   deleteTransaction as deleteTransactionRequest,
 } from "../api/transactions";
-import { createTransfer, deleteTransfer as deleteTransferRequest } from "../api/transfers";
+import {
+  createTransfer,
+  updateTransfer as updateTransferRequest,
+  deleteTransfer as deleteTransferRequest,
+} from "../api/transfers";
 import { useAuth } from "../auth/AuthContext";
 import { useAppConfig } from "../config/AppConfigContext";
+import {
+  monthlyTotalsWithoutHidden,
+  useChartHiddenCategories,
+} from "../config/ChartHiddenCategoriesContext";
+import { filterSpendStats } from "../utils/spendStats";
 import { useTheme } from "../config/ThemeContext";
 import { useEscapeKey } from "../hooks/useEscapeKey";
 import { usePwaInstall } from "../hooks/usePwaInstall";
@@ -49,6 +59,12 @@ import {
   filterCardPaymentsForAccount,
   isCardPaymentExpense,
 } from "../utils/creditCardPayments";
+import { isConsumptionExpense } from "../utils/consumption";
+import {
+  RESALE_INCOME_CATEGORY,
+  RESALE_INCOME_SUBCATEGORY,
+  linkedResaleExpenseId,
+} from "../utils/resaleSales";
 import { expensesNetOfRefunds, isSpendRefund } from "../utils/spendRefunds";
 import { toast } from "react-toastify";
 
@@ -94,6 +110,7 @@ function Dashboard() {
   const { editWindowMs, expenseCategoryNames } = useAppConfig();
   const { theme, toggleTheme } = useTheme();
   const { canInstall, install } = usePwaInstall();
+  const { hiddenSet } = useChartHiddenCategories();
   const [showMenu, setShowMenu] = useState(false);
   const menuRef = useRef(null);
   const [expenses, setExpenses] = useState([]);
@@ -118,18 +135,23 @@ function Dashboard() {
   const [monthEndBalance, setMonthEndBalance] = useState(0);
   const [creditBill, setCreditBill] = useState(null);
   const [weekExpenses, setWeekExpenses] = useState([]);
-  const [weekIncomes, setWeekIncomes] = useState([]);
+  const [resaleLots, setResaleLots] = useState([]);
+  const [refundableExpenses, setRefundableExpenses] = useState([]);
   const [ledgerScope, setLedgerScope] = useState("");
   const [lifetimeStats, setLifetimeStats] = useState({
     categorySums: {},
     subcategorySums: {},
     monthlyTotals: [],
+    monthlyCategoryTotals: [],
     total: 0,
   });
 
   const defaultAccount = accounts.find((a) => a.isDefault) || accounts[0];
   const defaultAccountId = defaultAccount?.id || "";
-  const defaultAccountOpening = defaultAccount?.openingBalance ?? 0;
+  const defaultBank =
+    accounts.find((account) => account.isDefault && account.type !== "credit") ||
+    accounts.find((account) => account.type !== "credit") ||
+    null;
 
   const selectedAccount = useMemo(
     () =>
@@ -139,6 +161,12 @@ function Dashboard() {
     [accountFilter, accounts]
   );
   const viewingCredit = isCreditAccount(selectedAccount);
+  const openingTargetAccount =
+    selectedAccount && !viewingCredit ? selectedAccount : defaultBank;
+  const addPayFromAccountId = viewingCredit
+    ? defaultBank?.id || defaultAccountId
+    : selectedAccount?.id || defaultAccountId;
+  const addSettleAccountId = viewingCredit ? selectedAccount.id : "";
   const creditCycle = creditCycleForAccount(selectedAccount);
   const periodCycle = creditCycle || "calendar";
   const expectedLedgerScope = viewingCredit
@@ -149,38 +177,87 @@ function Dashboard() {
   const sourceIncomes = ledgerMatchesView ? incomes : [];
   const sourceTransfers = ledgerMatchesView ? transfers : [];
 
-  const { consumptionExpenses, cardPaymentExpenses } = useMemo(() => {
+  const { listedExpenses, consumptionExpenses, cardPaymentExpenses } = useMemo(() => {
+    const listed = [];
     const consumption = [];
     const payments = [];
     for (const expense of sourceExpenses) {
       if (isCardPaymentExpense(expense)) payments.push(expense);
       else if (accountFilter === "all" || String(expense.accountId) === String(accountFilter)) {
-        consumption.push(expense);
+        listed.push(expense);
+        if (isConsumptionExpense(expense)) consumption.push(expense);
       }
     }
-    return { consumptionExpenses: consumption, cardPaymentExpenses: payments };
+    return {
+      listedExpenses: listed,
+      consumptionExpenses: consumption,
+      cardPaymentExpenses: payments,
+    };
   }, [accountFilter, sourceExpenses]);
 
   const monthCardPayments = useMemo(
     () => filterCardPaymentsForAccount(cardPaymentExpenses, accountFilter, accounts),
     [accountFilter, accounts, cardPaymentExpenses]
   );
-  const monthIncomes = useMemo(
-    () => filterByAccount(sourceIncomes, accountFilter),
-    [accountFilter, sourceIncomes]
-  );
-  const { spendRefunds, countedIncomes } = useMemo(() => {
-    const refunds = [];
+  const refundOriginalById = useMemo(() => {
+    const map = {};
+    for (const row of refundableExpenses) map[String(row._id || row.id)] = row;
+    for (const row of expenses) map[String(row._id || row.id)] = row;
+    return map;
+  }, [expenses, refundableExpenses]);
+  const remainingById = useMemo(() => {
+    const map = {};
+    for (const row of refundableExpenses) {
+      const id = String(row._id || row.id);
+      const left = Number(row.remaining);
+      if (id && Number.isFinite(left)) map[id] = left;
+    }
+    return map;
+  }, [refundableExpenses]);
+  const refundableForForm = useMemo(() => {
+    const byId = {};
+    for (const row of refundableExpenses) byId[String(row._id || row.id)] = row;
+    const linkedId = editingTransaction?.refundOfExpenseId;
+    if (linkedId && !byId[String(linkedId)]) {
+      const original = refundOriginalById[String(linkedId)];
+      if (original) {
+        byId[String(linkedId)] = {
+          ...original,
+          remaining: original.remaining != null ? original.remaining : 0,
+        };
+      }
+    }
+    return Object.values(byId);
+  }, [editingTransaction, refundOriginalById, refundableExpenses]);
+  const monthIncomes = useMemo(() => {
+    const rows = filterByAccount(sourceIncomes, accountFilter);
+    return rows.map((tx) => {
+      const profit = tx.profitAmount;
+      const original = tx.refundOfExpenseId
+        ? refundOriginalById[String(tx.refundOfExpenseId)]
+        : null;
+      if (profit == null && !original) return tx;
+      return {
+        ...tx,
+        ...(profit != null ? { _profitAmount: profit } : {}),
+        ...(original ? { _refundOfTitle: original.title } : {}),
+      };
+    });
+  }, [accountFilter, refundOriginalById, sourceIncomes]);
+  const countedIncomes = useMemo(() => {
     const counted = [];
     for (const tx of monthIncomes) {
-      if (isSpendRefund(tx)) refunds.push(tx);
-      else counted.push(tx);
+      if (isSpendRefund(tx)) continue;
+      if (linkedResaleExpenseId(tx)) {
+        const profit = tx._profitAmount;
+        counted.push(profit != null ? { ...tx, amount: profit } : tx);
+      } else counted.push(tx);
     }
-    return { spendRefunds: refunds, countedIncomes: counted };
+    return counted;
   }, [monthIncomes]);
   const netConsumptionExpenses = useMemo(
-    () => expensesNetOfRefunds(consumptionExpenses, spendRefunds),
-    [consumptionExpenses, spendRefunds]
+    () => expensesNetOfRefunds(consumptionExpenses),
+    [consumptionExpenses]
   );
   const monthTransfers = useMemo(
     () => filterByAccount(sourceTransfers, accountFilter),
@@ -192,29 +269,20 @@ function Dashboard() {
   );
   const weekOverviewExpenses = useMemo(() => {
     const weekConsumption = filterByAccount(
-      weekExpenses.filter((expense) => !isCardPaymentExpense(expense)),
+      weekExpenses.filter(isConsumptionExpense),
       accountFilter
     );
-    const weekRefunds = filterByAccount(weekIncomes, accountFilter).filter(isSpendRefund);
     return filterByCategory(
-      expensesNetOfRefunds(weekConsumption, weekRefunds, consumptionExpenses),
+      expensesNetOfRefunds(weekConsumption),
       expenseCategory,
       expenseSubcategory
     );
-  }, [
-    accountFilter,
-    consumptionExpenses,
-    weekExpenses,
-    weekIncomes,
-    expenseCategory,
-    expenseSubcategory,
-  ]);
+  }, [accountFilter, weekExpenses, expenseCategory, expenseSubcategory]);
 
   const categorySums = useCategorySums(overviewMonthExpenses, expenseCategoryNames);
   const monthBudgetSums = useCategorySums(netConsumptionExpenses, expenseCategoryNames);
   const rawMonthExpenseTotal = useMonthTotal(netConsumptionExpenses);
   const monthExpenseTotal = Math.max(0, rawMonthExpenseTotal);
-  const overviewMonthExpenseTotal = Math.max(0, useMonthTotal(overviewMonthExpenses));
   const monthIncomeTotal = useMonthTotal(countedIncomes);
   const cardSpendAdjustments = useMemo(
     () =>
@@ -223,8 +291,19 @@ function Dashboard() {
         : { outside: 0, unmatched: 0 },
     [accountFilter, accounts, monthCardPayments]
   );
-  const lifetimeCategorySums = lifetimeStats.categorySums || {};
-  const lifetimeExpenseTotal = lifetimeStats.total || 0;
+  const scopedLifetimeStats = useMemo(
+    () => filterSpendStats(lifetimeStats, expenseCategory, expenseSubcategory),
+    [lifetimeStats, expenseCategory, expenseSubcategory]
+  );
+  const lifetimeMonthlyTotals = useMemo(
+    () =>
+      monthlyTotalsWithoutHidden(
+        scopedLifetimeStats.monthlyCategoryTotals,
+        hiddenSet,
+        scopedLifetimeStats.monthlyTotals
+      ),
+    [scopedLifetimeStats.monthlyCategoryTotals, scopedLifetimeStats.monthlyTotals, hiddenSet]
+  );
   const headerSummary = viewingCredit
     ? { monthStartOpening, statementOpening, monthEndBalance, creditBill }
     : summaryFromMonthData(
@@ -294,6 +373,8 @@ function Dashboard() {
     setExpenses(monthData.expenses || []);
     setIncomes(monthData.incomes || []);
     setTransfers(monthData.transfers || []);
+    setResaleLots(monthData.resaleLots || []);
+    setRefundableExpenses(monthData.refundableExpenses || []);
     setMonthStartOpening(summary.monthStartOpening);
     setStatementOpening(summary.statementOpening);
     setMonthEndBalance(summary.monthEndBalance);
@@ -316,10 +397,8 @@ function Dashboard() {
     if (weekCoveredByMonth) {
       const nextWeek = {
         expenses: (monthData.expenses || []).filter(inWeek),
-        incomes: (monthData.incomes || []).filter(inWeek),
       };
       setWeekExpenses(nextWeek.expenses);
-      setWeekIncomes(nextWeek.incomes);
       weekCacheRef.current.set(weekCacheKey, nextWeek);
       return;
     }
@@ -328,32 +407,27 @@ function Dashboard() {
     if (!nextWeek) {
       const week = await fetchTransactionsRange({ from: weekFrom, to: today });
       if (gen !== loadGenRef.current) return;
-      nextWeek = { expenses: week.expenses || [], incomes: week.incomes || [] };
+      nextWeek = { expenses: week.expenses || [] };
       weekCacheRef.current.set(weekCacheKey, nextWeek);
     }
     setWeekExpenses(nextWeek.expenses || []);
-    setWeekIncomes(nextWeek.incomes || []);
   }, [accountFilter, monthKey]);
 
   const loadStats = useCallback(async ({ force = false } = {}) => {
-    const statsKey = `${accountFilter}::${expenseCategory}::${expenseSubcategory}`;
+    const statsKey = String(accountFilter || "all");
     let stats = !force ? statsCacheRef.current.get(statsKey) : undefined;
     if (!stats) {
-      stats = await fetchSpendingStats({
-        accountId: accountFilter,
-        category: expenseCategory,
-        subcategory: expenseSubcategory,
-      });
+      stats = await fetchSpendingStats({ accountId: accountFilter });
       statsCacheRef.current.set(statsKey, stats);
     }
     setLifetimeStats({
       categorySums: stats.categorySums || {},
       subcategorySums: stats.subcategorySums || {},
       monthlyTotals: stats.monthlyTotals || [],
+      monthlyCategoryTotals: stats.monthlyCategoryTotals || [],
       total: stats.total || 0,
     });
-  }, [accountFilter, expenseCategory, expenseSubcategory]);
-
+  }, [accountFilter]);
   const reloadLedger = useCallback(async () => {
     ledgerCacheRef.current.clear();
     weekCacheRef.current.clear();
@@ -475,8 +549,12 @@ function Dashboard() {
   const handleSaveOpeningBalance = useCallback(
     async (amount) => {
       try {
-        const updated = await updateOpeningBalance(amount);
-        setUser((prev) => ({ ...prev, ...updated }));
+        if (openingModalRequired || !openingTargetAccount?.id) {
+          const updated = await updateOpeningBalance(amount);
+          setUser((prev) => ({ ...prev, ...updated }));
+        } else {
+          await updateAccount(openingTargetAccount.id, { openingBalance: amount });
+        }
         setOpeningModalOpen(false);
         setOpeningModalRequired(false);
         await reloadLedger();
@@ -486,7 +564,7 @@ function Dashboard() {
         throw error;
       }
     },
-    [setUser, reloadLedger]
+    [openingModalRequired, openingTargetAccount, setUser, reloadLedger]
   );
 
   const openAddModal = useCallback(() => {
@@ -516,6 +594,52 @@ function Dashboard() {
     [openEditModal]
   );
 
+  const openEditTransfer = useCallback(
+    (transaction) => openEditModal(transaction, "transfer"),
+    [openEditModal]
+  );
+
+  const openRefundExpense = useCallback(
+    (expense) => {
+      const remaining = remainingById[String(expense._id)];
+      if (!(remaining > 0.005)) {
+        toast.error("This purchase is already fully refunded");
+        return;
+      }
+      const original = String(expense.title || "Expense").trim() || "Expense";
+      setEditingTransaction({
+        isRefundDraft: true,
+        type: "income",
+        title: `${original} refund`.slice(0, 50),
+        amount: remaining,
+        category: "Refunds & Cashback",
+        subcategory: "Refund",
+        icon: "🔁",
+        accountId: expense.accountId,
+        refundOfExpenseId: expense._id,
+        date: formatDateKey(new Date()),
+      });
+      setModalOpen(true);
+    },
+    [remainingById]
+  );
+
+  const openResaleExpense = useCallback((expense) => {
+    const original = String(expense.title || "Stock").trim() || "Stock";
+    setEditingTransaction({
+      isResaleDraft: true,
+      type: "income",
+      title: `${original} resale`.slice(0, 50),
+      category: RESALE_INCOME_CATEGORY,
+      subcategory: RESALE_INCOME_SUBCATEGORY,
+      icon: "🏪",
+      accountId: expense.accountId,
+      resaleOfExpenseId: expense._id,
+      date: formatDateKey(new Date()),
+    });
+    setModalOpen(true);
+  }, []);
+
   const closeTransactionModal = useCallback(() => {
     setModalOpen(false);
     setEditingTransaction(null);
@@ -525,10 +649,14 @@ function Dashboard() {
     async (transaction, existing) => {
       if (transaction.type === "transfer") {
         try {
-          const data = await createTransfer(transaction);
-          setTransfers((prev) => [data, ...prev]);
-          setHasTransactions(true);
-          toast.success("Transfer recorded", { position: "top-center" });
+          if (existing?._id && existing.type === "transfer") {
+            await updateTransferRequest(existing._id, transaction);
+            toast.success("Transfer updated", { position: "top-center" });
+          } else {
+            await createTransfer(transaction);
+            setHasTransactions(true);
+            toast.success("Transfer recorded", { position: "top-center" });
+          }
           await reloadLedger();
           return;
         } catch (error) {
@@ -537,28 +665,28 @@ function Dashboard() {
         }
       }
 
-      const type = existing?.type ?? transaction.type;
+      const previousType = existing?.type;
+      const type = transaction.type;
       const isIncome = type === "income";
 
       try {
-        if (existing?._id) {
-          const data = await updateTransactionRequest(type, existing._id, transaction);
-          const updater = (prev) =>
-            prev.map((item) => (item._id === existing._id ? data : item));
-
-          if (isIncome) setIncomes(updater);
-          else setExpenses(updater);
-
+        if (existing?._id && previousType && previousType !== type && previousType !== "transfer") {
+          await deleteTransactionRequest(previousType, existing._id);
+          await createTransaction(transaction);
           toast.success("Updated", { position: "top-center" });
           await reloadLedger();
           return;
         }
 
-        const data = await createTransaction(transaction);
-        if (isIncome) setIncomes((prev) => [data, ...prev]);
-        else setExpenses((prev) => [data, ...prev]);
-        setHasTransactions(true);
+        if (existing?._id) {
+          await updateTransactionRequest(previousType || type, existing._id, transaction);
+          toast.success("Updated", { position: "top-center" });
+          await reloadLedger();
+          return;
+        }
 
+        await createTransaction(transaction);
+        setHasTransactions(true);
         toast.success(isIncome ? "Income added" : "Expense added", { position: "top-center" });
         await reloadLedger();
       } catch (error) {
@@ -576,11 +704,6 @@ function Dashboard() {
     async (type, id) => {
       try {
         await deleteTransactionRequest(type, id);
-        if (type === "income") {
-          setIncomes((prev) => prev.filter((income) => income._id !== id));
-        } else {
-          setExpenses((prev) => prev.filter((expense) => expense._id !== id));
-        }
         toast.success("Deleted", { position: "top-center" });
         await reloadLedger();
       } catch (error) {
@@ -595,7 +718,6 @@ function Dashboard() {
     async (id) => {
       try {
         await deleteTransferRequest(id);
-        setTransfers((prev) => prev.filter((row) => row._id !== id));
         toast.success("Transfer deleted", { position: "top-center" });
         await reloadLedger();
       } catch (error) {
@@ -620,7 +742,7 @@ function Dashboard() {
 
   const exportMonth = useCallback(() => {
     buildTransactionsCsv({
-      expenses: consumptionExpenses,
+      expenses: listedExpenses,
       incomes: monthIncomes,
       transfers: monthTransfers,
       cardPayments: monthCardPayments,
@@ -628,7 +750,7 @@ function Dashboard() {
       monthLabel: formatMonthLabel(monthKey),
     });
     toast.success("CSV downloaded", { position: "top-center" });
-  }, [accounts, consumptionExpenses, monthCardPayments, monthIncomes, monthKey, monthTransfers]);
+  }, [accounts, listedExpenses, monthCardPayments, monthIncomes, monthKey, monthTransfers]);
 
   const displayName =
     ((user.firstName || "") + " " + (user.lastName || "")).trim() || user.email;
@@ -760,7 +882,7 @@ function Dashboard() {
                       }}
                       className="sw-menu-item"
                     >
-                      Email & password
+                      PIN & device unlock
                     </button>
                     <button
                       type="button"
@@ -837,6 +959,7 @@ function Dashboard() {
               openingBalance={headerSummary.monthStartOpening}
               accountBalance={headerSummary.monthEndBalance}
               isCredit={viewingCredit}
+              creditLimit={viewingCredit ? selectedAccount?.creditLimit : null}
               creditBill={headerSummary.creditBill}
               periodNote={
                 creditCycle ? formatCreditDueLabel(monthKey, periodCycle) : null
@@ -850,7 +973,9 @@ function Dashboard() {
               }
               outsideSettled={cardSpendAdjustments.outside}
               unmatchedCardOutflow={cardSpendAdjustments.unmatched}
-              onEditOpeningBalance={viewingCredit ? undefined : openOpeningBalanceModal}
+              onEditOpeningBalance={
+                viewingCredit || accountFilter === "all" ? undefined : openOpeningBalanceModal
+              }
             />
           </div>
         )}
@@ -887,7 +1012,6 @@ function Dashboard() {
                 <CategoryBreakdown
                   expenses={overviewMonthExpenses}
                   categorySums={categorySums}
-                  monthTotal={overviewMonthExpenseTotal}
                   accounts={accounts}
                   accountFilter={accountFilter}
                 />
@@ -905,9 +1029,8 @@ function Dashboard() {
                 />
                 <CategoryBreakdown
                   expenses={[]}
-                  categorySums={lifetimeCategorySums}
-                  subcategorySums={lifetimeStats.subcategorySums}
-                  monthTotal={lifetimeExpenseTotal}
+                  categorySums={scopedLifetimeStats.categorySums}
+                  subcategorySums={scopedLifetimeStats.subcategorySums}
                   accounts={accounts}
                   accountFilter={accountFilter}
                   title="Lifetime"
@@ -915,14 +1038,14 @@ function Dashboard() {
                   emptyDescription="Your expenses from every month will appear here"
                   scopeLabel="all time"
                 >
-                  <MonthlySpendList monthlyTotals={lifetimeStats.monthlyTotals} />
+                  <MonthlySpendList monthlyTotals={lifetimeMonthlyTotals} />
                 </CategoryBreakdown>
               </div>
 
               <div className="xl:col-span-2 min-h-[28rem] xl:min-h-0 xl:relative">
                 <div className="xl:absolute xl:inset-0 flex">
                   <Transactions
-                    expenses={consumptionExpenses}
+                    expenses={listedExpenses}
                     incomes={monthIncomes}
                     transfers={monthTransfers}
                     cardPayments={monthCardPayments}
@@ -934,6 +1057,10 @@ function Dashboard() {
                     onExpenseSubcategoryChange={setExpenseSubcategory}
                     onEditExpense={openEditExpense}
                     onEditIncome={openEditIncome}
+                    onEditTransfer={openEditTransfer}
+                    onRefundExpense={openRefundExpense}
+                    onResaleExpense={openResaleExpense}
+                    remainingById={remainingById}
                     onDeleteExpense={deleteExpense}
                     onDeleteIncome={deleteIncome}
                     onDeleteTransfer={removeTransfer}
@@ -941,6 +1068,7 @@ function Dashboard() {
                     statementOpening={headerSummary.statementOpening}
                     monthEndBalance={headerSummary.monthEndBalance}
                     isCredit={viewingCredit}
+                    monthKey={monthKey}
                   />
                 </div>
               </div>
@@ -958,13 +1086,17 @@ function Dashboard() {
         editingTransaction={editingTransaction}
         onOpenRequest={openAddModal}
         accounts={accounts}
-        defaultAccountId={defaultAccountId}
+        defaultAccountId={addPayFromAccountId}
+        preferredSettleAccountId={addSettleAccountId}
+        resaleLots={resaleLots}
+        refundableExpenses={refundableForForm}
       />
 
       <OpeningBalanceModal
         open={openingModalOpen}
         required={openingModalRequired}
-        initialValue={defaultAccountOpening || ""}
+        accountName={openingTargetAccount?.name}
+        initialValue={openingTargetAccount?.openingBalance ?? ""}
         onSave={handleSaveOpeningBalance}
         onSkip={openingModalRequired ? undefined : skipOpeningBalance}
       />

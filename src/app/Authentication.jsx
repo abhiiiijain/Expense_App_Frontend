@@ -8,6 +8,7 @@ import {
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { AuthProvider, useAuth } from "../auth/AuthContext";
+import { ChartHiddenCategoriesProvider } from "../config/ChartHiddenCategoriesContext";
 import { AppLockProvider, useAppLock } from "../auth/AppLockContext";
 import PinLock from "../auth/PinLock";
 import { AppConfigProvider } from "../config/AppConfigContext";
@@ -92,11 +93,13 @@ function Authentication() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <AppLockProvider>
-          <AppConfigProvider>
-            <ThemedApp />
-          </AppConfigProvider>
-        </AppLockProvider>
+        <ChartHiddenCategoriesProvider>
+          <AppLockProvider>
+            <AppConfigProvider>
+              <ThemedApp />
+            </AppConfigProvider>
+          </AppLockProvider>
+        </ChartHiddenCategoriesProvider>
       </AuthProvider>
     </ThemeProvider>
   );

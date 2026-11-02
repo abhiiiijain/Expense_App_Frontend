@@ -6,6 +6,7 @@ import { useAuth } from "./AuthContext";
 
 const AppLockContext = createContext(null);
 const REFRESH_MS = 30_000;
+const LOCK_AFTER_HIDDEN_MS = 2 * 60 * 1000;
 const SKIP_APP_LOCK = import.meta.env.DEV;
 
 export function AppLockProvider({ children }) {
@@ -32,18 +33,25 @@ export function AppLockProvider({ children }) {
   useEffect(() => {
     if (SKIP_APP_LOCK) return undefined;
 
-    const hide = () => {
-      if (document.visibilityState === "hidden") {
-        lock();
-      }
+    let timer;
+    const schedule = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(lock, LOCK_AFTER_HIDDEN_MS);
     };
-    const onPageHide = () => lock();
+    const cancel = () => window.clearTimeout(timer);
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") schedule();
+      else cancel();
+    };
 
-    document.addEventListener("visibilitychange", hide);
-    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", schedule);
+    window.addEventListener("pageshow", cancel);
     return () => {
-      document.removeEventListener("visibilitychange", hide);
-      window.removeEventListener("pagehide", onPageHide);
+      cancel();
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", schedule);
+      window.removeEventListener("pageshow", cancel);
     };
   }, [lock]);
 

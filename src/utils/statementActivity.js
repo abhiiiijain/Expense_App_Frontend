@@ -24,8 +24,11 @@ function statementDelta(row, selected, selectedAccount, credits) {
   }
 
   if (kind === "cardPayment") {
-    if (!selected) return 0;
     const paidFrom = String(row.accountId);
+    if (!selected) {
+      const paidOnCredit = credits.some((account) => String(account.id) === paidFrom);
+      return paidOnCredit ? amount : 0;
+    }
     const settlesSelected =
       selectedAccount?.type === "credit" &&
       paymentSettlesCreditAccount(row, selectedAccount, credits);

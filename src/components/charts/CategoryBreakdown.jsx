@@ -3,6 +3,13 @@ import DoughnutChart from "./DoughnutChart";
 import CardHeader from "./CardHeader";
 import ModalShell from "../ModalShell";
 import { useCategories } from "../../config/AppConfigContext";
+import {
+  filterExpensesForCharts,
+  omitHiddenCategorySums,
+  omitHiddenSubcategorySums,
+  sumCategoryAmounts,
+  useChartHiddenCategories,
+} from "../../config/ChartHiddenCategoriesContext";
 import { formatCurrency, formatPercent } from "../../utils/formatCurrency";
 import { clampBarWidth } from "../../utils/clampBarWidth";
 import { AccountTotalsBar } from "../AccountBreakdown";
@@ -91,55 +98,66 @@ function CategoryDetailPopover({ detail, onClose }) {
   );
 }
 
-function CategoryRow({ category, amount, monthTotal, subcategories, onOpen, scopeLabel }) {
+function CategoryRow({ category, amount, monthTotal, subcategories, onOpen, onHide, scopeLabel }) {
   const pct = monthTotal > 0 ? (amount / monthTotal) * 100 : 0;
   const barWidth = clampBarWidth(pct);
   const hasBreakdown = subcategories.length > 0;
 
   return (
     <li>
-      <button
-        type="button"
-        onClick={() =>
-          hasBreakdown &&
-          onOpen({ category, amount, subcategories, scopeTotal: monthTotal, scopeLabel })
-        }
-        aria-haspopup="dialog"
-        className={`w-full text-left rounded-xl px-2 py-2 transition ${
-          hasBreakdown
-            ? "hover:bg-[var(--sw-muted-bg)] cursor-pointer"
-            : "cursor-default"
-        }`}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="w-2 h-2 rounded-sm shrink-0 ring-1 ring-black/5"
-            style={{ backgroundColor: category.color }}
-            aria-hidden="true"
-          />
-          <span className="flex-1 min-w-0 text-xs sm:text-sm font-medium text-ink truncate">
-            {category.name}
-          </span>
-          {hasBreakdown && (
-            <span className="text-[10px] font-medium text-sage-700 dark:text-sage-200 shrink-0">View</span>
-          )}
-          <span className="text-[11px] text-ink-muted tabular-nums shrink-0">
-            {formatPercent(pct)}
-          </span>
-          <span className="text-xs sm:text-sm font-bold text-ink tabular-nums shrink-0 w-[5.25rem] text-right">
-            {formatCurrency(amount)}
-          </span>
-        </div>
-        <div className="mt-1.5 ml-4 h-1 rounded-full overflow-hidden bg-[var(--sw-muted-bg)]">
-          <div
-            className="h-full rounded-full transition-all duration-500"
-            style={{
-              width: `${barWidth}%`,
-              backgroundColor: category.color,
-            }}
-          />
-        </div>
-      </button>
+      <div className="flex items-stretch gap-1 rounded-xl px-1 py-1 transition hover:bg-[var(--sw-muted-bg)]">
+        <button
+          type="button"
+          onClick={() =>
+            hasBreakdown &&
+            onOpen({ category, amount, subcategories, scopeTotal: monthTotal, scopeLabel })
+          }
+          aria-haspopup={hasBreakdown ? "dialog" : undefined}
+          className={`min-w-0 flex-1 text-left rounded-xl px-2 py-2 ${
+            hasBreakdown ? "cursor-pointer" : "cursor-default"
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <span
+              className="w-2 h-2 rounded-sm shrink-0 ring-1 ring-black/5"
+              style={{ backgroundColor: category.color }}
+              aria-hidden="true"
+            />
+            <span className="flex-1 min-w-0 text-xs sm:text-sm font-medium text-ink truncate">
+              {category.name}
+            </span>
+            {hasBreakdown && (
+              <span className="text-[10px] font-medium text-sage-700 dark:text-sage-200 shrink-0">
+                View
+              </span>
+            )}
+            <span className="text-[11px] text-ink-muted tabular-nums shrink-0">
+              {formatPercent(pct)}
+            </span>
+            <span className="text-xs sm:text-sm font-bold text-ink tabular-nums shrink-0 w-[5.25rem] text-right">
+              {formatCurrency(amount)}
+            </span>
+          </div>
+          <div className="mt-1.5 ml-4 h-1 rounded-full overflow-hidden bg-[var(--sw-muted-bg)]">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{
+                width: `${barWidth}%`,
+                backgroundColor: category.color,
+              }}
+            />
+          </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => onHide?.(category.name)}
+          className="shrink-0 self-center px-2 py-1 text-[10px] font-medium text-ink-muted hover:text-ink rounded-lg"
+          title="Hide from charts"
+          aria-label={`Hide ${category.name} from charts`}
+        >
+          Hide
+        </button>
+      </div>
     </li>
   );
 }
@@ -147,23 +165,31 @@ function CategoryRow({ category, amount, monthTotal, subcategories, onOpen, scop
 function MonthCategoryContent({
   expenses,
   categorySums,
-  subcategorySums,
-  monthTotal,
+  visibleSums,
+  visibleSubSums,
+  chartTotal,
   onSelectDetail,
   scopeLabel,
 }) {
   const [showEmpty, setShowEmpty] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const { expenseCategories } = useCategories();
+  const { hiddenCategories, hiddenSet, hideCategory, showCategory } = useChartHiddenCategories();
 
-  const { activeCategories, emptyCategories, subcategoryBreakdowns } = useMemo(() => {
+  const { activeCategories, emptyCategories, subcategoryBreakdowns, hiddenActive } = useMemo(() => {
     const active = expenseCategories
-      .filter((c) => categorySums[c.name] > 0)
-      .sort((a, b) => categorySums[b.name] - categorySums[a.name]);
-    const empty = expenseCategories.filter((c) => !(categorySums[c.name] > 0));
+      .filter((c) => visibleSums[c.name] > 0)
+      .sort((a, b) => visibleSums[b.name] - visibleSums[a.name]);
+    const empty = expenseCategories.filter(
+      (c) => !hiddenSet.has(c.name) && !(visibleSums[c.name] > 0)
+    );
+    const hiddenActive = expenseCategories.filter(
+      (c) => hiddenSet.has(c.name) && (categorySums[c.name] || 0) > 0
+    );
 
     const breakdownMap = {};
-    if (subcategorySums) {
-      Object.entries(subcategorySums).forEach(([category, subs]) => {
+    if (visibleSubSums && Object.keys(visibleSubSums).length) {
+      Object.entries(visibleSubSums).forEach(([category, subs]) => {
         breakdownMap[category] = { ...subs };
       });
     } else {
@@ -188,13 +214,14 @@ function MonthCategoryContent({
       activeCategories: active,
       emptyCategories: empty,
       subcategoryBreakdowns,
+      hiddenActive,
     };
-  }, [expenses, categorySums, subcategorySums, expenseCategories]);
+  }, [expenses, categorySums, visibleSums, visibleSubSums, expenseCategories, hiddenSet]);
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-start gap-4 lg:gap-5">
       <div className="w-full max-w-[220px] mx-auto lg:mx-0 lg:w-[200px] shrink-0">
-        <DoughnutChart categorySums={categorySums} />
+        <DoughnutChart categorySums={visibleSums} />
       </div>
 
       <div className="w-full lg:flex-1 min-w-0">
@@ -203,14 +230,56 @@ function MonthCategoryContent({
             <CategoryRow
               key={category.name}
               category={category}
-              amount={categorySums[category.name]}
-              monthTotal={monthTotal}
+              amount={visibleSums[category.name]}
+              monthTotal={chartTotal}
               subcategories={subcategoryBreakdowns[category.name] || []}
               onOpen={onSelectDetail}
+              onHide={hideCategory}
               scopeLabel={scopeLabel}
             />
           ))}
         </ul>
+
+        {hiddenCategories.length > 0 && (
+          <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--sw-border)" }}>
+            <button
+              type="button"
+              onClick={() => setShowHidden((v) => !v)}
+              className="text-[11px] font-medium text-sage-700 hover:text-sage-600 dark:text-blue-300 dark:hover:text-blue-200"
+            >
+              {showHidden
+                ? "Hide restored list"
+                : `${hiddenCategories.length} hidden from charts`}
+            </button>
+            {showHidden && (
+              <div className="mt-2 flex flex-wrap gap-1 animate-fade-in">
+                {(hiddenActive.length ? hiddenActive : expenseCategories.filter((c) => hiddenSet.has(c.name))).map(
+                  (category) => (
+                    <button
+                      key={category.name}
+                      type="button"
+                      onClick={() => showCategory(category.name)}
+                      className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[11px] text-ink-muted hover:text-ink"
+                      style={{
+                        background: "var(--sw-muted-bg)",
+                        border: "1px solid var(--sw-border)",
+                      }}
+                      title="Show on charts again"
+                    >
+                      <span
+                        className="w-1.5 h-1.5 rounded-full opacity-50"
+                        style={{ backgroundColor: category.color }}
+                        aria-hidden="true"
+                      />
+                      {category.name}
+                      <span className="font-medium text-sage-700 dark:text-sage-200">Show</span>
+                    </button>
+                  )
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {emptyCategories.length > 0 && (
           <div className="pt-2 mt-2" style={{ borderTop: "1px solid var(--sw-border)" }}>
@@ -256,7 +325,6 @@ function CategoryBreakdown({
   expenses: monthlyExpenses,
   categorySums,
   subcategorySums,
-  monthTotal,
   accounts = [],
   accountFilter = "all",
   title = "This Month",
@@ -266,8 +334,22 @@ function CategoryBreakdown({
   children,
 }) {
   const [selectedDetail, setSelectedDetail] = useState(null);
-  const accountTotals = useAccountExpenseTotals(monthlyExpenses, accounts, accountFilter);
-  const hasSpending = monthTotal > 0;
+  const { hiddenSet } = useChartHiddenCategories();
+  const visibleExpenses = useMemo(
+    () => filterExpensesForCharts(monthlyExpenses, hiddenSet),
+    [monthlyExpenses, hiddenSet]
+  );
+  const visibleSums = useMemo(
+    () => omitHiddenCategorySums(categorySums, hiddenSet),
+    [categorySums, hiddenSet]
+  );
+  const visibleSubSums = useMemo(
+    () => omitHiddenSubcategorySums(subcategorySums, hiddenSet),
+    [subcategorySums, hiddenSet]
+  );
+  const chartSpent = useMemo(() => sumCategoryAmounts(visibleSums), [visibleSums]);
+  const accountTotals = useAccountExpenseTotals(visibleExpenses, accounts, accountFilter);
+  const hasSpending = chartSpent > 0;
 
   return (
     <div className="sw-panel p-4 sm:p-5 w-full">
@@ -278,7 +360,7 @@ function CategoryBreakdown({
               Spent
             </p>
             <p className="text-sm font-bold text-ink tabular-nums">
-              {formatCurrency(monthTotal)}
+              {formatCurrency(chartSpent)}
             </p>
           </div>
         )}
@@ -292,10 +374,11 @@ function CategoryBreakdown({
             <AccountTotalsBar totals={accountTotals} tone="expense" className="mb-4" />
           )}
           <MonthCategoryContent
-            expenses={monthlyExpenses}
+            expenses={visibleExpenses}
             categorySums={categorySums}
-            subcategorySums={subcategorySums}
-            monthTotal={monthTotal}
+            visibleSums={visibleSums}
+            visibleSubSums={visibleSubSums}
+            chartTotal={chartSpent}
             onSelectDetail={setSelectedDetail}
             scopeLabel={scopeLabel}
           />

@@ -1,6 +1,10 @@
 import { memo, useEffect, useMemo, useState } from "react";
 import { Bar } from "react-chartjs-2";
 import { useCategories } from "../../config/AppConfigContext";
+import {
+  filterExpensesForCharts,
+  useChartHiddenCategories,
+} from "../../config/ChartHiddenCategoriesContext";
 import { useWeeklyBarChartData } from "../../hooks/useExpenseAnalytics";
 import { formatChartAxis, formatCurrency } from "../../utils/formatCurrency";
 import EmptyState from "../EmptyState";
@@ -118,16 +122,21 @@ function WeeklyChartBlock({ labels, tooltipLabels, datasets }) {
 
 function WeeklyBarChart({ expenses, accounts = [], accountFilter = "all" }) {
   const { expenseCategories, expenseCategoryNames } = useCategories();
-  const accountTotals = useAccountExpenseTotals(expenses, accounts, accountFilter);
+  const { hiddenSet } = useChartHiddenCategories();
+  const chartExpenses = useMemo(
+    () => filterExpensesForCharts(expenses, hiddenSet),
+    [expenses, hiddenSet]
+  );
+  const accountTotals = useAccountExpenseTotals(chartExpenses, accounts, accountFilter);
   const { labels, tooltipLabels, datasets, weekTotal, hasData } = useWeeklyBarChartData(
-    expenses,
+    chartExpenses,
     expenseCategories,
     expenseCategoryNames
   );
 
   return (
     <div className="sw-panel p-4 sm:p-6 w-full">
-      <CardHeader eyebrow="Overview" title="Last 7 Days">
+      <CardHeader eyebrow="Overview" title="Last 7 days">
         {hasData && (
           <div className="text-right shrink-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">

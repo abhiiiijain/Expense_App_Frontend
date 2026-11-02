@@ -1,64 +1,49 @@
+export const REFUND_SUBCATEGORY = "Refund";
+export const REFUND_WINDOW_DAYS = 15;
+
 export function isSpendRefund(tx) {
-  return tx?.subcategory === "Refund";
+  return tx?.subcategory === REFUND_SUBCATEGORY;
 }
 
 function roundMoney(value) {
   return Math.round((Number(value) + Number.EPSILON) * 100) / 100;
 }
 
-function titleKey(title) {
-  return String(title || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+refunds?$/i, "")
-    .replace(/\s+/g, " ");
-}
-
-function matchesRefund(expense, refund) {
-  const refundAccount = String(refund?.accountId || "");
-  return (
-    titleKey(expense?.title) === titleKey(refund?.title) &&
-    (!refundAccount || String(expense?.accountId) === refundAccount)
-  );
-}
-
-function refundsAsSpendAdjustments(refunds, expenses) {
-  return (refunds || []).map((refund) => {
-    const match = (expenses || []).find((expense) => matchesRefund(expense, refund));
-    return {
-      ...refund,
-      amount: -(Number(refund.amount) || 0),
-      category: match?.category || "Other",
-      subcategory: match?.subcategory || "Uncategorized",
-    };
-  });
-}
-
-export function expensesNetOfRefunds(expenses, refunds, matchAgainst = expenses) {
-  const next = (expenses || []).map((expense) => ({
-    ...expense,
-    amount: Number(expense.amount) || 0,
-  }));
-  const leftovers = [];
-
-  for (const refund of (refunds || []).filter(isSpendRefund)) {
-    let remaining = Number(refund.amount) || 0;
-    const matches = next
-      .map((expense, index) => ({ expense, index }))
-      .filter(({ expense }) => expense.amount > 0.005 && matchesRefund(expense, refund))
-      .sort((a, b) => b.expense.amount - a.expense.amount);
-
-    for (const { index } of matches) {
-      if (remaining <= 0.005) break;
-      const take = Math.min(next[index].amount, remaining);
-      next[index] = { ...next[index], amount: roundMoney(next[index].amount - take) };
-      remaining = roundMoney(remaining - take);
-    }
-    if (remaining > 0.005) leftovers.push({ ...refund, amount: remaining });
+/** Prefers server `remaining`; adds back the in-edit row so the cap stays the original spend. */
+export function remainingWithEdit(record, editingTx, linkField) {
+  const raw = record?.remaining;
+  let left =
+    raw != null && Number.isFinite(Number(raw)) ? Number(raw) : Number(record?.amount) || 0;
+  if (
+    editingTx?._id &&
+    String(editingTx[linkField] || "") === String(record?._id || record?.id || "")
+  ) {
+    left += Number(editingTx.amount) || 0;
   }
+  const cap = Number(record?.amount);
+  if (Number.isFinite(cap)) left = Math.min(left, cap);
+  return roundMoney(Math.max(0, left));
+}
 
-  return [
-    ...next.filter((expense) => expense.amount > 0.005),
-    ...refundsAsSpendAdjustments(leftovers, matchAgainst),
-  ];
+export function refundCapMessage(remaining, formatAmount) {
+  if (remaining <= 0.005) return "This purchase is already fully refunded";
+  const shown =
+    typeof formatAmount === "function"
+      ? formatAmount(remaining)
+      : `₹${roundMoney(remaining).toFixed(2)}`;
+  return `Refund can't be more than ${shown} left on this purchase`;
+}
+
+/** Spent after linked refunds. Server `remaining` follows the original purchase month. */
+export function expensesNetOfRefunds(expenses) {
+  return (expenses || [])
+    .map((expense) => {
+      const raw = expense?.remaining;
+      const amount =
+        raw != null && Number.isFinite(Number(raw))
+          ? Number(raw)
+          : Number(expense?.amount) || 0;
+      return { ...expense, amount: roundMoney(Math.max(0, amount)) };
+    })
+    .filter((expense) => expense.amount > 0.005);
 }

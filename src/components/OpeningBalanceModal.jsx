@@ -4,7 +4,14 @@ import { APP_NAME } from "../constants/app";
 import { formatCurrency } from "../utils/formatCurrency";
 import { formatAmountInput, roundMoney, sanitizeAmountInput } from "../utils/sanitizeAmount";
 
-function OpeningBalanceModal({ open, initialValue = "", onSave, onSkip, required = false }) {
+function OpeningBalanceModal({
+  open,
+  initialValue = "",
+  onSave,
+  onSkip,
+  required = false,
+  accountName = "",
+}) {
   const [amount, setAmount] = useState("");
   const [saving, setSaving] = useState(false);
   const canDismiss = !required && Boolean(onSkip);
@@ -65,8 +72,9 @@ function OpeningBalanceModal({ open, initialValue = "", onSave, onSkip, required
           Opening balance
         </h2>
         <p className="text-sm text-ink-muted mt-2 leading-relaxed">
-          Enter your current bank balance when you start using {APP_NAME}. New income and
-          expenses will be added on top of this so your app balance matches your account.
+          {accountName
+            ? `Enter the current balance for ${accountName}. New income and expenses are added on top so the app matches the account.`
+            : `Enter your current bank balance when you start using ${APP_NAME}. New income and expenses will be added on top of this so your app balance matches your account.`}
         </p>
       </div>
 

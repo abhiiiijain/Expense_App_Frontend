@@ -1,4 +1,5 @@
 import { memo, useEffect, useMemo, useState } from "react";
+import { toast } from "react-toastify";
 import { searchTransactions } from "../api/transactions";
 import { useAppConfig } from "../config/AppConfigContext";
 import {
@@ -16,7 +17,13 @@ import {
 } from "./AccountBreakdown";
 import { useAccountExpenseTotals } from "../hooks/useAccountExpenseTotals";
 import { filterByCategory } from "../utils/filterTransactions";
-import { cardPaymentRoute, isCardPaymentExpense } from "../utils/creditCardPayments";
+import {
+  cardPaymentRoute,
+  isCardPaymentExpense,
+} from "../utils/creditCardPayments";
+import { isResaleInventoryExpense } from "../utils/consumption";
+import { isResaleIncome } from "../utils/resaleSales";
+import { isSpendRefund } from "../utils/spendRefunds";
 import { withStatementBalances } from "../utils/statementActivity";
 
 function FilterChips({ options, selected, onSelect, onClear, activeClass, inactiveClass }) {
@@ -96,11 +103,33 @@ function RowShell({ icon, title, subtitle, extra, amount, signed, ledger, balanc
   );
 }
 
-function RowActions({ canModify, onEdit, onDelete, editLabel, deleteLabel }) {
-  if (!canModify) return null;
+function RowActions({ canModify, onEdit, onDelete, onRefund, onResale, editLabel, deleteLabel }) {
+  if (!canModify && !onRefund && !onResale) return null;
   return (
     <div className="flex items-center gap-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition">
-      {onEdit && (
+      {onRefund && (
+        <button
+          type="button"
+          title="Refund this expense"
+          aria-label="Refund this expense"
+          className="w-7 h-7 rounded-md text-ink-muted hover:text-sage-700 hover:bg-[var(--sw-muted-bg)] dark:hover:text-blue-200 text-[10px] font-bold transition"
+          onClick={onRefund}
+        >
+          ↩
+        </button>
+      )}
+      {onResale && (
+        <button
+          type="button"
+          title="Record resale"
+          aria-label="Record resale"
+          className="w-7 h-7 rounded-md text-ink-muted hover:text-sage-700 hover:bg-[var(--sw-muted-bg)] dark:hover:text-blue-200 text-[10px] font-bold transition"
+          onClick={onResale}
+        >
+          ↗
+        </button>
+      )}
+      {canModify && onEdit && (
         <button
           type="button"
           title={editLabel}
@@ -111,7 +140,7 @@ function RowActions({ canModify, onEdit, onDelete, editLabel, deleteLabel }) {
           ✎
         </button>
       )}
-      {onDelete && (
+      {canModify && onDelete && (
         <button
           type="button"
           title={deleteLabel}
@@ -131,6 +160,8 @@ function TransactionRow({
   type,
   onEdit,
   onDelete,
+  onRefund,
+  onResale,
   editWindowMs,
   accountName,
   showAccountBadge,
@@ -139,8 +170,18 @@ function TransactionRow({
 }) {
   const isIncome = type === "income";
   const canModify = isTransactionEditable(transaction.createdAt, editWindowMs);
-  const subtitle =
-    transaction.title === transaction.subcategory
+  const profitAmount = transaction._profitAmount;
+  const subtitle = isResaleInventoryExpense(transaction)
+    ? "Resale inventory · not counted as spending"
+    : isSpendRefund(transaction) && transaction._refundOfTitle
+      ? `Refund of ${transaction._refundOfTitle}`
+    : isResaleIncome(transaction) && transaction.resaleOfExpenseId
+      ? profitAmount == null
+        ? "Resale · linked to stock"
+        : profitAmount > 0.005
+          ? `Resale · profit ${formatCurrency(profitAmount)} counted as income`
+          : "Resale · stock recovery · not counted as income"
+    : transaction.title === transaction.subcategory
       ? transaction.category
       : transaction.subcategory;
   const showSubtitle = subtitle && subtitle !== transaction.title;
@@ -167,6 +208,8 @@ function TransactionRow({
           canModify={canModify}
           onEdit={onEdit ? () => onEdit(transaction) : undefined}
           onDelete={onDelete ? () => onDelete(transaction) : undefined}
+          onRefund={onRefund && type === "expense" ? () => onRefund(transaction) : undefined}
+          onResale={onResale && type === "expense" ? () => onResale(transaction) : undefined}
           editLabel={`Edit ${type}`}
           deleteLabel={`Delete ${type}`}
         />
@@ -264,7 +307,11 @@ function ActivityRow({
   showAccountBadge,
   onEditExpense,
   onEditIncome,
+  onEditTransfer,
+  onRefundExpense,
+  onResaleExpense,
   onRequestDelete,
+  remainingById = {},
   ledger = false,
 }) {
   const kind = row._activityKind;
@@ -277,6 +324,8 @@ function ActivityRow({
         signedAmount={ledger ? row._statementDelta : undefined}
         balanceAfter={row._balanceAfter}
         ledger={ledger}
+        onEdit={onEditTransfer}
+        editLabel="Edit transfer"
         onDelete={(item) => onRequestDelete(item, "transfer")}
       />
     );
@@ -301,6 +350,14 @@ function ActivityRow({
       transaction={row}
       type={kind}
       onEdit={kind === "income" ? onEditIncome : onEditExpense}
+      onRefund={
+        kind === "expense" && remainingById[String(row._id)] > 0.005
+          ? onRefundExpense
+          : undefined
+      }
+      onResale={
+        kind === "expense" && isResaleInventoryExpense(row) ? onResaleExpense : undefined
+      }
       onDelete={(item) => onRequestDelete(item, kind)}
       editWindowMs={editWindowMs}
       showAccountBadge={showAccountBadge}
@@ -366,6 +423,10 @@ const Transactions = ({
   onExpenseSubcategoryChange,
   onEditExpense,
   onEditIncome,
+  onEditTransfer,
+  onRefundExpense,
+  onResaleExpense,
+  remainingById = {},
   onDeleteExpense,
   onDeleteIncome,
   onDeleteTransfer,
@@ -373,10 +434,13 @@ const Transactions = ({
   statementOpening,
   monthEndBalance,
   isCredit = false,
+  monthKey,
 }) => {
   const [tab, setTab] = useState("statement");
   const [search, setSearch] = useState("");
   const [searchHits, setSearchHits] = useState(null);
+  const [searchTruncated, setSearchTruncated] = useState(false);
+  const [searchError, setSearchError] = useState(false);
   const [selectedIncomeMainCategory, setSelectedIncomeMainCategory] = useState("All");
   const [selectedIncomeSubcategory, setSelectedIncomeSubcategory] = useState("All");
   const [pendingDelete, setPendingDelete] = useState(null);
@@ -400,22 +464,31 @@ const Transactions = ({
     const query = search.trim();
     if (!query) {
       setSearchHits(null);
+      setSearchTruncated(false);
+      setSearchError(false);
       return undefined;
     }
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
-        const data = await searchTransactions(query);
-        if (!cancelled) setSearchHits(data);
+        const data = await searchTransactions(query, { monthKey, accountId: accountFilter });
+        if (!cancelled) {
+          setSearchHits(data);
+          setSearchTruncated(Boolean(data.truncated));
+          setSearchError(false);
+        }
       } catch (_error) {
-        if (!cancelled) setSearchHits({ expenses: [], incomes: [], transfers: [] });
+        if (!cancelled) {
+          setSearchError(true);
+          toast.error("Search failed. Try again.");
+        }
       }
     }, 250);
     return () => {
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [search]);
+  }, [search, monthKey, accountFilter]);
 
   const filteredExpenses = useMemo(() => {
     if (searching) {
@@ -585,7 +658,11 @@ const Transactions = ({
       showAccountBadge={showBadge}
       onEditExpense={onEditExpense}
       onEditIncome={onEditIncome}
+      onEditTransfer={onEditTransfer}
+      onRefundExpense={onRefundExpense}
+      onResaleExpense={onResaleExpense}
       onRequestDelete={requestDelete}
+      remainingById={remainingById}
       ledger={ledger}
     />
   );
@@ -670,7 +747,8 @@ const Transactions = ({
         />
         {searching ? (
           <p className="text-xs text-ink-muted px-0.5">
-            Searching expenses, income, transfers, and card payments across all accounts
+            Searching this {accountFilter === "all" ? "month across all accounts" : "account and month"}
+            {searchTruncated ? " · showing first 150 per type" : ""}
           </p>
         ) : isStatement ? null : !isTransfer ? (
           <>
@@ -755,8 +833,12 @@ const Transactions = ({
       {searching ? (
         <DateGroups
           grouped={groupedSearchResults}
-          emptyTitle="No matching activity"
-          emptyDescription="Try a title, category, account, or amount"
+          emptyTitle={searchError ? "Search failed" : "No matching activity"}
+          emptyDescription={
+            searchError
+              ? "Check your connection and try again"
+              : "Try a title, category, account, or amount"
+          }
           renderRow={(row) => renderActivity(row, { showBadge: accounts.length > 1 })}
         />
       ) : isStatement ? (

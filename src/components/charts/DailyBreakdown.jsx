@@ -2,6 +2,10 @@ import { memo, useEffect, useMemo, useState } from "react";
 import DoughnutChart from "./DoughnutChart";
 import CardHeader from "./CardHeader";
 import { useCategories } from "../../config/AppConfigContext";
+import {
+  filterExpensesForCharts,
+  useChartHiddenCategories,
+} from "../../config/ChartHiddenCategoriesContext";
 import { useCategorySums, useMonthTotal } from "../../hooks/useExpenseAnalytics";
 import { formatCurrency, formatPercent } from "../../utils/formatCurrency";
 import { clampBarWidth } from "../../utils/clampBarWidth";
@@ -106,6 +110,7 @@ function DailyBreakdown({
   cycle = "calendar",
 }) {
   const { expenseCategories, expenseCategoryNames } = useCategories();
+  const { hiddenSet } = useChartHiddenCategories();
   const { minDayKey, maxDayKey } = getDayBoundsForMonth(monthKey, cycle);
   const [dayKey, setDayKey] = useState(() => formatDateKey(new Date()));
 
@@ -116,9 +121,15 @@ function DailyBreakdown({
     });
   }, [minDayKey, maxDayKey]);
 
+  const chartExpenses = useMemo(
+    () => filterExpensesForCharts(expenses, hiddenSet),
+    [expenses, hiddenSet]
+  );
+
   const dayExpenses = useMemo(
-    () => expenses.filter((expense) => formatDateKey(transactionDate(expense)) === dayKey),
-    [dayKey, expenses]
+    () =>
+      chartExpenses.filter((expense) => formatDateKey(transactionDate(expense)) === dayKey),
+    [dayKey, chartExpenses]
   );
 
   const categorySums = useCategorySums(dayExpenses, expenseCategoryNames);

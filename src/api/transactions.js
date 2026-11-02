@@ -1,8 +1,18 @@
 import { apiClient } from "./client";
 
 function txPayload(transaction) {
-  const { title, amount, category, subcategory, icon, date, accountId, settlesAccountId } =
-    transaction;
+  const {
+    title,
+    amount,
+    category,
+    subcategory,
+    icon,
+    date,
+    accountId,
+    settlesAccountId,
+    refundOfExpenseId,
+    resaleOfExpenseId,
+  } = transaction;
   return {
     title,
     amount,
@@ -12,6 +22,8 @@ function txPayload(transaction) {
     date,
     accountId,
     ...(settlesAccountId ? { settlesAccountId } : {}),
+    ...(refundOfExpenseId ? { refundOfExpenseId } : {}),
+    ...(resaleOfExpenseId ? { resaleOfExpenseId } : {}),
   };
 }
 
@@ -40,12 +52,19 @@ export async function fetchMonthTransactions({ monthKey, accountId } = {}) {
   return data;
 }
 
-export async function searchTransactions(query) {
-  const { data } = await apiClient.get(`transactions${withQuery({ q: query })}`);
+export async function searchTransactions(query, { monthKey, accountId } = {}) {
+  const { data } = await apiClient.get(
+    `transactions${withQuery({
+      q: query,
+      monthKey,
+      accountId: accountId && accountId !== "all" ? accountId : undefined,
+    })}`
+  );
   return {
     expenses: data.expenses || [],
     incomes: data.incomes || [],
     transfers: data.transfers || [],
+    truncated: Boolean(data.truncated),
   };
 }
 
@@ -59,17 +78,13 @@ export async function fetchTransactionsRange({ from, to, accountId } = {}) {
   );
   return {
     expenses: data.expenses || [],
-    incomes: data.incomes || [],
-    transfers: data.transfers || [],
   };
 }
 
-export async function fetchSpendingStats({ accountId, category, subcategory } = {}) {
+export async function fetchSpendingStats({ accountId } = {}) {
   const { data } = await apiClient.get(
     `transactions/stats${withQuery({
       accountId: accountId && accountId !== "all" ? accountId : undefined,
-      category: category && category !== "All" ? category : undefined,
-      subcategory: subcategory && subcategory !== "All" ? subcategory : undefined,
     })}`
   );
   return data;
@@ -91,3 +106,4 @@ export async function deleteTransaction(type, id) {
   const endpoint = type === "income" ? `delete-income/${id}` : `delete-expense/${id}`;
   await apiClient.delete(endpoint);
 }
+

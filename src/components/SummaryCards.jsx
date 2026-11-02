@@ -22,6 +22,7 @@ function SummaryCards({
   openingBalance = 0,
   accountBalance = 0,
   isCredit = false,
+  creditLimit = null,
   creditBill = null,
   periodNote = null,
   balanceHint = "Month end · opening this month + income − spend",
@@ -116,6 +117,12 @@ function SummaryCards({
             </span>
           )}
           {periodNote && <span className="truncate">{periodNote}</span>}
+          {isCredit && Number(creditLimit) > 0 && (
+            <span className="tabular-nums">
+              Limit {formatCurrency(creditLimit)}
+              {showDue ? ` · due ${formatCurrency(Math.abs(resolvedBalance))}` : ""}
+            </span>
+          )}
         </div>
         {spentPctLabel && (
           <p>

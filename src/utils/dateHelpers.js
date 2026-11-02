@@ -82,7 +82,10 @@ export function getCreditCycleBounds(monthKey, cycle) {
   const [year, month] = monthKey.split("-").map(Number);
   const start = new Date(year, month - 2, spec.statementDay + 1);
   const statement = new Date(year, month - 1, spec.statementDay);
-  const due = new Date(year, month, spec.dueDay);
+  const due =
+    spec.dueDay > spec.statementDay
+      ? new Date(year, month - 1, spec.dueDay)
+      : new Date(year, month, spec.dueDay);
   return { start, statement, due };
 }
 

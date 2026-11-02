@@ -1,4 +1,4 @@
-export const DEFAULT_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const DEFAULT_EDIT_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 /** Human-readable label for the edit window (e.g. "24 hours"). */
 function formatEditWindowLabel(editWindowMs) {
