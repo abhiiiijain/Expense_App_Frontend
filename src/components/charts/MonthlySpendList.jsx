@@ -5,22 +5,15 @@ import { formatMonthLabel } from "../../utils/dateHelpers";
 
 function MonthlySpendList({ monthlyTotals = [] }) {
   const rows = useMemo(() => {
-    const sums = {};
-    monthlyTotals.forEach((row) => {
-      sums[row.monthKey] = row.total;
-    });
-
-    const amounts = Object.values(sums);
-    const max = Math.max(0, ...amounts);
-
-    return Object.keys(sums)
-      .sort((a, b) => b.localeCompare(a))
-      .map((monthKey) => {
-        const amount = sums[monthKey];
+    const max = Math.max(0, ...monthlyTotals.map((row) => Number(row.total) || 0));
+    return [...monthlyTotals]
+      .sort((a, b) => String(b.monthKey).localeCompare(String(a.monthKey)))
+      .map((row) => {
+        const amount = Number(row.total) || 0;
         const pct = max > 0 ? (amount / max) * 100 : 0;
         return {
-          monthKey,
-          label: formatMonthLabel(monthKey),
+          monthKey: row.monthKey,
+          label: formatMonthLabel(row.monthKey),
           amount,
           barWidth: clampBarWidth(pct),
         };

@@ -199,7 +199,25 @@ const AddExpenseModal = ({
     const { name, value } = e.target;
 
     if (name === "amount") {
-      setFormData((prev) => ({ ...prev, [name]: sanitizeAmountInput(value) }));
+      const nextAmount = sanitizeAmountInput(value);
+      setFormData((prev) => {
+        const entered = Number(nextAmount) || 0;
+        if (
+          prev.subcategory !== REFUND_SUBCATEGORY ||
+          !prev.refundOfExpenseId ||
+          entered <= 0.005
+        ) {
+          return { ...prev, amount: nextAmount };
+        }
+        const selected = refundableExpenses.find(
+          (row) => String(row._id || row.id) === String(prev.refundOfExpenseId)
+        );
+        const remaining = selected ? leftover(selected, "refundOfExpenseId") : 0;
+        if (remaining + 0.005 >= entered) {
+          return { ...prev, amount: nextAmount };
+        }
+        return { ...prev, amount: nextAmount, refundOfExpenseId: "" };
+      });
     } else if (name === "category") {
       setFormData((prev) => ({
         ...prev,
@@ -367,6 +385,7 @@ const AddExpenseModal = ({
   const refundWindowStartKey = formatDateKey(
     subDays(new Date(`${refundDateKey}T12:00:00`), REFUND_WINDOW_DAYS)
   );
+  const refundAmountEntered = Number(formData.amount) || 0;
   const refundPurchaseOptions = isRefund
     ? refundableExpenses
         .filter((expense) => {
@@ -374,7 +393,11 @@ const AddExpenseModal = ({
           if (id === String(formData.refundOfExpenseId)) return true;
           const purchaseKey = formatDateKey(transactionDate(expense));
           if (purchaseKey < refundWindowStartKey || purchaseKey > refundDateKey) return false;
-          return leftover(expense, "refundOfExpenseId") > 0.005;
+          const remaining = leftover(expense, "refundOfExpenseId");
+          if (!(remaining > 0.005)) return false;
+          // Only purchases that can cover the refund amount entered.
+          if (refundAmountEntered > 0.005 && remaining + 0.005 < refundAmountEntered) return false;
+          return true;
         })
         .sort((a, b) => {
           const aTime = new Date(a.date || a.createdAt || 0).getTime();
@@ -780,7 +803,9 @@ const AddExpenseModal = ({
                   </select>
                   {refundPurchaseOptions.length === 0 ? (
                     <p className="mt-1.5 text-[11px] text-ink-muted">
-                      No card purchases in the last {REFUND_WINDOW_DAYS} days to refund.
+                      {refundAmountEntered > 0.005
+                        ? `No purchases with at least ${formatCurrency(refundAmountEntered)} left in the last ${REFUND_WINDOW_DAYS} days.`
+                        : `No card purchases in the last ${REFUND_WINDOW_DAYS} days to refund.`}
                     </p>
                   ) : refundOverLimit ? (
                     <p className="mt-1.5 text-[11px] text-rose-600 dark:text-rose-400">

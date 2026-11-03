@@ -33,24 +33,9 @@ export function filterSpendStats(stats, category, subcategory) {
     return true;
   });
 
-  const monthlyMap = {};
-  for (const row of monthlyCategoryTotals) {
-    const key = row.monthKey;
-    if (!key) continue;
-    monthlyMap[key] = (monthlyMap[key] || 0) + (Number(row.total) || 0);
-  }
-
-  const monthlyTotals = Object.keys(monthlyMap)
-    .sort((a, b) => b.localeCompare(a))
-    .map((monthKey) => ({ monthKey, total: Math.max(0, monthlyMap[monthKey]) }));
-
-  const total = Object.values(categorySums).reduce((sum, value) => sum + (Number(value) || 0), 0);
-
   return {
     categorySums,
     subcategorySums,
-    monthlyTotals,
     monthlyCategoryTotals,
-    total: Math.max(0, total),
   };
 }

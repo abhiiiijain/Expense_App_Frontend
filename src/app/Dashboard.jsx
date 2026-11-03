@@ -65,7 +65,7 @@ import {
   RESALE_INCOME_SUBCATEGORY,
   linkedResaleExpenseId,
 } from "../utils/resaleSales";
-import { expensesNetOfRefunds, isSpendRefund } from "../utils/spendRefunds";
+import { expensesNetOfRefunds, isSpendRefund, REFUND_SUBCATEGORY } from "../utils/spendRefunds";
 import { toast } from "react-toastify";
 
 function isCreditAccount(account) {
@@ -143,7 +143,6 @@ function Dashboard() {
     subcategorySums: {},
     monthlyTotals: [],
     monthlyCategoryTotals: [],
-    total: 0,
   });
 
   const defaultAccount = accounts.find((a) => a.isDefault) || accounts[0];
@@ -300,9 +299,9 @@ function Dashboard() {
       monthlyTotalsWithoutHidden(
         scopedLifetimeStats.monthlyCategoryTotals,
         hiddenSet,
-        scopedLifetimeStats.monthlyTotals
+        lifetimeStats.monthlyTotals
       ),
-    [scopedLifetimeStats.monthlyCategoryTotals, scopedLifetimeStats.monthlyTotals, hiddenSet]
+    [scopedLifetimeStats.monthlyCategoryTotals, lifetimeStats.monthlyTotals, hiddenSet]
   );
   const headerSummary = viewingCredit
     ? { monthStartOpening, statementOpening, monthEndBalance, creditBill }
@@ -425,7 +424,6 @@ function Dashboard() {
       subcategorySums: stats.subcategorySums || {},
       monthlyTotals: stats.monthlyTotals || [],
       monthlyCategoryTotals: stats.monthlyCategoryTotals || [],
-      total: stats.total || 0,
     });
   }, [accountFilter]);
   const reloadLedger = useCallback(async () => {
@@ -613,7 +611,7 @@ function Dashboard() {
         title: `${original} refund`.slice(0, 50),
         amount: remaining,
         category: "Refunds & Cashback",
-        subcategory: "Refund",
+        subcategory: REFUND_SUBCATEGORY,
         icon: "🔁",
         accountId: expense.accountId,
         refundOfExpenseId: expense._id,
