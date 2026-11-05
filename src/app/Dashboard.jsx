@@ -483,16 +483,27 @@ function Dashboard() {
       }
     };
 
+    // Initial stamp + forced ledger reload (HMR can keep stale expense/income rows).
     fetchDashboardStamp()
-      .then((value) => {
-        if (!cancelled) stamp = value;
+      .then(async (value) => {
+        if (cancelled) return;
+        stamp = value;
+        ledgerCacheRef.current.clear();
+        weekCacheRef.current.clear();
+        statsCacheRef.current.clear();
+        await Promise.all([
+          loadLedgerRef.current({ force: true }),
+          loadStatsRef.current({ force: true }),
+        ]);
       })
       .catch(() => {});
 
     document.addEventListener("visibilitychange", refresh);
+    const poll = window.setInterval(refresh, 15_000);
     return () => {
       cancelled = true;
       document.removeEventListener("visibilitychange", refresh);
+      window.clearInterval(poll);
     };
   }, []);
 

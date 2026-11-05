@@ -190,23 +190,34 @@ export function getDayBoundsForMonth(monthKey, cycle = "calendar") {
 }
 
 function sameDayOrder(a, b) {
+  const aCreated = new Date(a?.createdAt || 0).getTime();
+  const bCreated = new Date(b?.createdAt || 0).getTime();
+  if (aCreated !== bCreated) return bCreated - aCreated;
   const aId = String(a?._id || "");
   const bId = String(b?._id || "");
   if (aId && bId && aId !== bId) return bId.localeCompare(aId);
-  return new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0);
+  return 0;
 }
 
+/** Sort by business date/time; same timestamp falls back to createdAt then id. */
 export function sortTransactionsNewestFirst(transactions, { oldestFirst = false } = {}) {
   return [...(transactions || [])].sort((a, b) => {
     const byDate = transactionDate(b).getTime() - transactionDate(a).getTime();
     if (byDate) return oldestFirst ? -byDate : byDate;
-    return oldestFirst ? sameDayOrder(b, a) : sameDayOrder(a, b);
+    const tie = sameDayOrder(a, b);
+    return oldestFirst ? -tie : tie;
   });
 }
 
-export function groupTransactionsByDate(transactions, { oldestFirst = false } = {}) {
+export function groupTransactionsByDate(
+  transactions,
+  { oldestFirst = false, preserveOrder = false } = {}
+) {
   const groups = {};
-  for (const transaction of sortTransactionsNewestFirst(transactions, { oldestFirst })) {
+  const ordered = preserveOrder
+    ? transactions || []
+    : sortTransactionsNewestFirst(transactions, { oldestFirst });
+  for (const transaction of ordered) {
     const dateKey = formatDateKey(transactionDate(transaction));
     if (!groups[dateKey]) groups[dateKey] = [];
     groups[dateKey].push(transaction);

@@ -602,7 +602,8 @@ const Transactions = ({
   const groupedStatement = useMemo(
     () =>
       !searching && tab === "statement"
-        ? groupTransactionsByDate(statementRows, { oldestFirst: true })
+        ? // Keep withStatementBalances order so Bal matches the row above/below.
+          groupTransactionsByDate(statementRows, { preserveOrder: true })
         : {},
     [searching, tab, statementRows]
   );
