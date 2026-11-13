@@ -1,5 +1,5 @@
 export const REFUND_SUBCATEGORY = "Refund";
-export const REFUND_WINDOW_DAYS = 15;
+export const REFUND_WINDOW_DAYS = 30;
 
 export function isSpendRefund(tx) {
   return tx?.subcategory === REFUND_SUBCATEGORY;
