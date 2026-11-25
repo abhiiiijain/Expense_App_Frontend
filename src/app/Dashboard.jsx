@@ -11,7 +11,15 @@ import MonthSwitcher from "../components/MonthSwitcher";
 import BudgetModal from "../components/BudgetModal";
 import AccountsModal from "../components/AccountsModal";
 import ProfileSecurityModal from "../components/ProfileSecurityModal";
+import RecurringScheduleModal from "../components/RecurringScheduleModal";
+import RecurringDueModal from "../components/RecurringDueModal";
 import OnboardingChecklist from "../components/OnboardingChecklist";
+import {
+  createRecurring,
+  fetchRecurring,
+  fulfillRecurring,
+  updateRecurring,
+} from "../api/recurring";
 import { updateOpeningBalance } from "../auth/authService";
 import { updateAccount } from "../api/accounts";
 import {
@@ -66,6 +74,11 @@ import {
   linkedResaleExpenseId,
 } from "../utils/resaleSales";
 import { expensesNetOfRefunds, isSpendRefund, REFUND_SUBCATEGORY } from "../utils/spendRefunds";
+import {
+  dueRecurringItems,
+  findMatchingRecurring,
+  isRecurringEligibleExpense,
+} from "../utils/recurring";
 import { toast } from "react-toastify";
 
 function isCreditAccount(account) {
@@ -130,6 +143,9 @@ function Dashboard() {
   const [accountsOpen, setAccountsOpen] = useState(false);
   const [budgetsOpen, setBudgetsOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [recurringList, setRecurringList] = useState([]);
+  const [scheduleDraft, setScheduleDraft] = useState(null);
+  const [dueQueue, setDueQueue] = useState([]);
   const [monthStartOpening, setMonthStartOpening] = useState(0);
   const [statementOpening, setStatementOpening] = useState(0);
   const [monthEndBalance, setMonthEndBalance] = useState(0);
@@ -458,6 +474,21 @@ function Dashboard() {
     loadStats().catch(() => {});
   }, [loadStats]);
 
+  const dismissedDueIdsRef = useRef(new Set());
+
+  const refreshRecurring = useCallback(async () => {
+    try {
+      const rows = await fetchRecurring();
+      setRecurringList(rows);
+      const dismissed = dismissedDueIdsRef.current;
+      setDueQueue(
+        dueRecurringItems(rows).filter((row) => !dismissed.has(String(row.id)))
+      );
+    } catch {
+      /* non-blocking */
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     let stamp = "";
@@ -477,6 +508,7 @@ function Dashboard() {
         await Promise.all([
           loadLedgerRef.current({ force: true }),
           loadStatsRef.current({ force: true }),
+          refreshRecurring(),
         ]);
       } finally {
         inFlight = false;
@@ -494,6 +526,7 @@ function Dashboard() {
         await Promise.all([
           loadLedgerRef.current({ force: true }),
           loadStatsRef.current({ force: true }),
+          refreshRecurring(),
         ]);
       })
       .catch(() => {});
@@ -654,6 +687,31 @@ function Dashboard() {
     setEditingTransaction(null);
   }, []);
 
+  const maybePromptRecurringSchedule = useCallback(
+    (transaction) => {
+      if (transaction?.fromRecurringId) return;
+      if (!isRecurringEligibleExpense(transaction)) return;
+      if (
+        findMatchingRecurring(recurringList, {
+          title: transaction.title,
+          subcategory: transaction.subcategory,
+          accountId: transaction.accountId,
+        })
+      ) {
+        return;
+      }
+      setScheduleDraft({
+        title: transaction.title,
+        amount: transaction.amount,
+        category: transaction.category,
+        subcategory: transaction.subcategory,
+        icon: transaction.icon,
+        accountId: transaction.accountId,
+      });
+    },
+    [recurringList]
+  );
+
   const saveTransaction = useCallback(
     async (transaction, existing) => {
       if (transaction.type === "transfer") {
@@ -677,27 +735,29 @@ function Dashboard() {
       const previousType = existing?.type;
       const type = transaction.type;
       const isIncome = type === "income";
+      const { fromRecurringId, ...txBody } = transaction;
 
       try {
         if (existing?._id && previousType && previousType !== type && previousType !== "transfer") {
           await deleteTransactionRequest(previousType, existing._id);
-          await createTransaction(transaction);
+          await createTransaction(txBody);
           toast.success("Updated", { position: "top-center" });
           await reloadLedger();
           return;
         }
 
         if (existing?._id) {
-          await updateTransactionRequest(previousType || type, existing._id, transaction);
+          await updateTransactionRequest(previousType || type, existing._id, txBody);
           toast.success("Updated", { position: "top-center" });
           await reloadLedger();
           return;
         }
 
-        await createTransaction(transaction);
+        await createTransaction(txBody);
         setHasTransactions(true);
         toast.success(isIncome ? "Income added" : "Expense added", { position: "top-center" });
         await reloadLedger();
+        if (!isIncome) maybePromptRecurringSchedule(transaction);
       } catch (error) {
         toast.error(
           error?.response?.data?.message ||
@@ -706,8 +766,77 @@ function Dashboard() {
         throw error;
       }
     },
-    [reloadLedger]
+    [maybePromptRecurringSchedule, reloadLedger]
   );
+
+  const handleScheduleOneTime = useCallback(() => {
+    setScheduleDraft(null);
+  }, []);
+
+  const handleScheduleMonthly = useCallback(
+    async (dueDay) => {
+      if (!scheduleDraft) return;
+      try {
+        await createRecurring({
+          ...scheduleDraft,
+          dueDay,
+          // Just recorded this month's payment via Add — don't remind again until next month.
+          lastFulfilledMonthKey: getMonthKey(),
+        });
+        toast.success("Monthly reminder saved", { position: "top-center" });
+        setScheduleDraft(null);
+        await refreshRecurring();
+      } catch (error) {
+        toast.error(error?.response?.data?.message || "Could not save reminder");
+        throw error;
+      }
+    },
+    [refreshRecurring, scheduleDraft]
+  );
+
+  const activeDueItem = dueQueue[0] || null;
+
+  const advanceDueQueue = useCallback((id) => {
+    dismissedDueIdsRef.current.add(String(id));
+    setDueQueue((prev) => prev.filter((row) => String(row.id) !== String(id)));
+  }, []);
+
+  const handleDueAdd = useCallback(
+    async (dateKey) => {
+      if (!activeDueItem) return;
+      const monthKeyNow = getMonthKey();
+      await saveTransaction({
+        type: "expense",
+        title: activeDueItem.title,
+        amount: activeDueItem.amount,
+        category: activeDueItem.category,
+        subcategory: activeDueItem.subcategory,
+        icon: activeDueItem.icon,
+        accountId: activeDueItem.accountId,
+        date: dateKey,
+        fromRecurringId: activeDueItem.id,
+      });
+      await fulfillRecurring(activeDueItem.id, monthKeyNow);
+      advanceDueQueue(activeDueItem.id);
+      await refreshRecurring();
+    },
+    [activeDueItem, advanceDueQueue, refreshRecurring, saveTransaction]
+  );
+
+  const handleDueSkip = useCallback(async () => {
+    if (!activeDueItem) return;
+    await fulfillRecurring(activeDueItem.id, getMonthKey());
+    advanceDueQueue(activeDueItem.id);
+    await refreshRecurring();
+  }, [activeDueItem, advanceDueQueue, refreshRecurring]);
+
+  const handleDueDeactivate = useCallback(async () => {
+    if (!activeDueItem) return;
+    await updateRecurring(activeDueItem.id, { active: false });
+    toast.success("Reminder turned off", { position: "top-center" });
+    advanceDueQueue(activeDueItem.id);
+    await refreshRecurring();
+  }, [activeDueItem, advanceDueQueue, refreshRecurring]);
 
   const removeTransaction = useCallback(
     async (type, id) => {
@@ -1125,6 +1254,24 @@ function Dashboard() {
       />
 
       <ProfileSecurityModal open={securityOpen} onClose={() => setSecurityOpen(false)} />
+
+      <RecurringScheduleModal
+        open={Boolean(scheduleDraft)}
+        draft={scheduleDraft}
+        onOneTime={handleScheduleOneTime}
+        onMonthly={handleScheduleMonthly}
+        onClose={handleScheduleOneTime}
+      />
+
+      <RecurringDueModal
+        open={Boolean(activeDueItem) && !scheduleDraft && !modalOpen}
+        item={activeDueItem}
+        remainingCount={dueQueue.length}
+        onAdd={handleDueAdd}
+        onSkip={handleDueSkip}
+        onDeactivate={handleDueDeactivate}
+        onClose={() => activeDueItem && advanceDueQueue(activeDueItem.id)}
+      />
     </div>
   );
 }
